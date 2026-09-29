@@ -211,7 +211,8 @@ public struct SDInspection: Sendable {
             scheme = .success(.gpt(issues.isEmpty ? .healthy : .degraded(issues)))
             table = GPTTable(diskID: header.diskGUID, entries: entries)
         } else {
-            let gptEvidence = primary != nil || backup != nil || mbrBlock.hasProtectiveRecord
+            // "EFI PART" at LBA 1 or at the backup location, or a 0xEE record in LBA 0.
+            let gptEvidence = primary?.header != nil || backup?.header != nil || mbrBlock.hasProtectiveRecord
             if gptEvidence {
                 scheme = .failure(.gptUnrecoverable)
             } else if mbrKind == .mbr {

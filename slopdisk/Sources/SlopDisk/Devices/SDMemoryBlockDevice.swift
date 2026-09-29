@@ -22,7 +22,8 @@ public final class SDMemoryBlockDevice: SDBlockDevice {
     public let sectorCount: UInt64
     public var isReadOnly: Bool { false }
 
-    private var chunks: [UInt64: [UInt8]] = [:]
+    /// Allocated chunks keyed by chunk index (byte offset / 64 KiB).
+    private(set) var chunks: [UInt64: [UInt8]] = [:]
 
     public init(sectorSize: Int, sectorCount: UInt64) {
         precondition(SDBlockRequest.isSupported(sectorSize: sectorSize), "sector size must be a power of two >= 512")
