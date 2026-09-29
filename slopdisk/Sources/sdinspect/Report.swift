@@ -111,11 +111,16 @@ struct Report {
         if report.damage == .fields {
             parts.append("fields INVALID")
         }
+        // Fields of a damaged header can hold anything, so the end LBA is computed without trapping on overflow.
         let entrySectors = report.entryArraySectorCount
-        let entryRange = entrySectors == 0
-            ? "entries none"
-            : "entries LBA \(report.partitionEntryLBA)..\(report.partitionEntryLBA + entrySectors - 1)"
-        parts.append(entryRange)
+        let (entryEnd, overflow) = report.partitionEntryLBA.addingReportingOverflow(entrySectors)
+        if entrySectors == 0 {
+            parts.append("entries none")
+        } else if overflow {
+            parts.append("entries LBA \(report.partitionEntryLBA)..(overflow)")
+        } else {
+            parts.append("entries LBA \(report.partitionEntryLBA)..\(entryEnd - 1)")
+        }
         if let computed = report.computedEntriesCRC {
             parts.append(computed == report.storedEntriesCRC
                 ? "crc OK"

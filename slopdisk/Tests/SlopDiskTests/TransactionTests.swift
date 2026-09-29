@@ -225,6 +225,18 @@ import Testing
         }
     }
 
+    /// `clear()` is non-throwing, so calling it after `commit()` traps instead of throwing `.transactionFinished`.
+    @Test func clearAfterCommitTraps() async {
+        await #expect(processExitsWith: .failure) {
+            let disk = try SDDiskImage.create(.inMemory, desiredSize: .megabytes(8))
+            try disk.withTransaction { txn in
+                txn.clear()
+                try txn.commit()
+                txn.clear()
+            }
+        }
+    }
+
     @Test func nonGPTRequiresClear() throws {
         let (none, _) = try blankDisk()
         #expect(none.scheme == .none)

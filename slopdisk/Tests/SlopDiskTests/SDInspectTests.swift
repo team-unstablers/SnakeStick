@@ -97,6 +97,19 @@ enum SDInspectBinary {
         }
     }
 
+    @Test func garbageHeaderFieldsDoNotCrash() throws {
+        try withTemporaryDirectory { directory in
+            let path = directory + "/garbage.img"
+            try makeT3Image(at: path)
+            // Signature intact, everything else 0xFF: header CRC fails and every field is huge.
+            try patchFile(path, at: 512 + 8, [UInt8](repeating: 0xFF, count: 84))
+            let result = try Self.runUnchanged(path, ["--hex", path])
+            #expect(result.status == 1)
+            #expect(result.stdout.contains("primaryHeaderInvalid(headerCRC)"))
+            #expect(result.stdout.contains("(overflow)"))
+        }
+    }
+
     @Test func noTableAndMBR() throws {
         try withTemporaryDirectory { directory in
             let blank = directory + "/blank.img"

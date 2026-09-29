@@ -70,8 +70,8 @@ enum Tools {
         try withTemporaryDirectory { directory in
             let outURL = URL(fileURLWithPath: directory + "/stdout")
             let errURL = URL(fileURLWithPath: directory + "/stderr")
-            FileManager.default.createFile(atPath: outURL.path, contents: nil)
-            FileManager.default.createFile(atPath: errURL.path, contents: nil)
+            _ = FileManager.default.createFile(atPath: outURL.path, contents: nil)
+            _ = FileManager.default.createFile(atPath: errURL.path, contents: nil)
             let out = try FileHandle(forWritingTo: outURL)
             let err = try FileHandle(forWritingTo: errURL)
             defer {
