@@ -1,0 +1,761 @@
+<agent-task mode="execute">
+    <status>
+        - 이 지시서는 `Prompts/00-metainit.xml` 수행 중 사용자와 AskUserQuestion 8회에 걸쳐 확정한 API 디자인을 기반으로 한다.
+        - `<decisions source="user">`는 사용자가 직접 고른 것이다. 다시 묻지 않는다.
+        - `<decisions source="planner">`는 사용자 결정에서 파생되어 플래너가 정한 것이다. 구현 중 명백히 잘못된 것으로 드러나면 멈추고 보고한다. 조용히 바꾸지 않는다.
+        - `<findings>`는 플래너가 이 머신에서 직접 실행해 확인한 사실이다. 다시 조사하지 않는다.
+        - 작업 규모: 새 패키지 구조 + 라이브러리 약 15파일 + CLI 1개 + 테스트. 단계 20(실디바이스)은 `Prompts/20-raw-device.xml`이 맡는다.
+    </status>
+
+    <objective>
+        # SlopDisk v1 코어: GPT 읽기·쓰기, 메모리/파일 백엔드, MBR 인식, sdinspect
+
+        ## 배경
+        - SlopDisk는 SnakeStick(macOS용 부팅 USB 제작 도구)이 쓰는 경량 GPT 파티션 테이블 관리 Swift 모듈이다.
+        - 저장소에는 컴파일되지 않는 스켈레톤만 있다(F1). 이 작업으로 v1 코어를 처음부터 만든다.
+        - FAT32 등 파일시스템은 범위 밖이다. 호출자가 `hdiutil attach -nomount` 후 `newfs_msdos`로 처리한다(D4, F9).
+
+        ## 범위
+        - 패키지 재구성: 이름 `SlopDisk`, macOS 13+ / Linux, `sdinspect` 실행 타깃 추가 (§1).
+        - 온디스크 코덱: CRC32, 혼합 엔디언 GUID, 보호 MBR, GPT 헤더, 파티션 엔트리, UTF-16LE 레이블 (§2).
+        - `SDBlockDevice` 공개 프로토콜과 두 구현체: 희소 인메모리, 파일 (§3).
+        - 읽기 경로: 스킴 판별(none / gpt / mbr), 손상 판정, 백업 사본 복구 읽기 (§4).
+        - `SDDisk`: refresh, repair, 재초기화 진입로, 트랜잭션 (§5, §6).
+        - commit / repair 쓰기 절차와 재읽기 검증 (§7).
+        - `SDDiskImage` 팩토리 (§8).
+        - `sdinspect` 읽기 전용 CLI (§9).
+        - 테스트: 순수 유닛, 골든 바이트, macOS 내장 도구 교차검증, hdiutil attach opt-in (§10).
+
+        ## 제외
+        - 실디바이스 백엔드(`SDRawDevice`), ioctl, C shim — `Prompts/20-raw-device.xml`이 맡는다. 이 단계에서 만들지 않는다.
+        - FAT32 및 모든 파일시스템 생성·조작 — 사용자 결정 D4.
+        - MBR 파티션 편집, 확장 파티션(EBR 체인) 추적, 하이브리드 MBR 작성 — MBR은 인식·보고만 한다(D12).
+        - 디스크 이미지 크기 변경(grow/shrink) API — 필요 없다. 단, 커진 이미지의 백업 GPT 재배치는 commit/repair가 자연히 처리한다(§7).
+        - git 저장소 생성과 커밋 — 사용자 결정 D30.
+
+        ## 완료 조건
+        - `<acceptance>`의 모든 명령이 기대 결과를 낸다.
+        - `<code id="api">`의 모든 `ensure`가 테스트로 옮겨져 통과한다.
+        - `<closing>`의 보고서가 작성되어 있다.
+    </objective>
+
+    <decisions source="user">
+        다시 묻지 말 것. 번호는 다른 블록에서 인용한다.
+
+        - D1. 타입 구조: `SDBlockDevice`(public protocol, AnyObject) / `SDDisk`(public final class, GPT 로직의 유일한 위치) / `SDDiskImage`(public enum, 메모리·파일 백엔드를 골라 `SDDisk`를 돌려주는 팩토리).
+              이유: SnakeStick 앱이 XPC·authopen 기반 디바이스 백엔드를 모듈 밖에서 꽂을 수 있게 한다.
+              대가: 블록 I/O 계약이 public API가 되어 나중에 바꾸기 어렵다. 스켈레톤의 `protocol SDDisk`, `protocol SDDiskImage`는 폐기한다.
+        - D2. 플랫폼: macOS + Linux. Darwin/Glibc 분기는 `#if canImport(Darwin)`로 한다.
+        - D3. 크기 단위는 이진만. `.megabytes(n)` = n × 1024². kilo/giga/tera 동일. 표시는 "400 MiB". SI 단위는 제공하지 않는다.
+        - D4. FAT32는 범위 제외. 호출자가 `hdiutil attach -nomount` + `newfs_msdos`로 처리한다. 구현 지시서는 10(코어)과 20(실디바이스) 두 개다.
+        - D5. 섹터 크기 512/4096 일반화. 엔진은 `device.sectorSize`를 따른다. 이미지 생성 시 `sectorSize:` 인자(기본 512). 이미지를 열 때 `sectorSize: nil`이면 바이트 오프셋 512 → 4096 순으로 "EFI PART"를 찾아 결정하고, 둘 다 없으면 512.
+        - D6. 배치: 시작은 1 MiB 경계로 정렬, 크기는 섹터 단위로 올림, first-fit. (sgdisk 기본 동작과 같다.)
+        - D7. `SDPartitionType`은 GUID를 감싼 struct + 정확한 이름의 상수. `.fat32`는 만들지 않는다. GPT에는 FAT32 타입 GUID가 없고 FAT32 데이터 파티션은 Microsoft Basic Data를 쓴다.
+        - D8. 트랜잭션은 명시 commit 필수. commit 없이 클로저가 끝나거나 throw하면 변경을 폐기하고 디스크는 건드리지 않는다. commit 후의 조작·재commit은 `.transactionFinished`.
+        - D9. 검증은 조작 시점에 즉시 throw. `addPartition`/`resizePartition`은 배치가 확정된 `SDPartition`을 돌려준다(`@discardableResult`).
+        - D10. 조작 목록: `clear`, `addPartition`(`.remaining`, `at:` 포함), `removePartition`, `setLabel`/`setType`/`setAttributes`, `resizePartition`(끝 LBA만 변경, 파일시스템은 건드리지 않음). 속성 비트는 `SDPartitionAttributes` OptionSet.
+        - D11. commit 쓰기 순서: 백업 엔트리 → 백업 헤더 → sync → 주 엔트리 → 주 헤더 → 보호 MBR → sync → 디바이스에서 재읽기 후 스테이징 상태와 비교. 불일치면 `.verificationFailed`.
+        - D12. 테이블 상태는 `disk.scheme: SDPartitionScheme` = `.none` / `.gpt(SDGPTHealth)` / `.mbr([SDMBRPartition])`. `partitions`는 GPT일 때만 채워진다. 비GPT 디스크에서 `clear()` 없이 조작하면 `.schemeNotGPT`.
+        - D13. 손상 처리: 한쪽 사본만 손상되면 멀쩡한 사본으로 읽고 `.gpt(.degraded(...))`로 보고한다. 읽기는 절대 디스크에 쓰지 않는다. 복구 쓰기는 `disk.repair()` 또는 다음 commit에서만. 양쪽 모두 손상이면 init/refresh가 `.gptUnrecoverable`을 throw한다.
+              재초기화 진입로: `SDDisk(device:, ignoringExistingTable: true)` — 기존 내용을 읽지 않고 `.none` 상태로 시작한다.
+        - D14. 동시성: 동기 API, `SDDisk`는 non-Sendable final class. 여러 격리 도메인에서 쓰려면 호출자가 actor로 감싼다.
+        - D15. `create(.file(path), ...)`의 대상이 이미 있으면 `.fileExists`. 새 파일은 `O_CREAT|O_EXCL` + `ftruncate`로 희소 파일을 만든다.
+        - D16. `SDPartition.begin`/`end`는 LBA이고 end를 포함한다(GPT 원형 그대로). `size`는 `SDSize`, `lbaRange`는 `ClosedRange<UInt64>`.
+        - D17. 레이블이 UTF-16 코드 유닛 36개를 넘으면 `.labelTooLong`. 서로게이트 페어는 2유닛으로 센다. 자르지 않는다.
+        - D18. `SDDiskImageSource.file`의 연관값은 `String` 경로. URL 사용자는 `url.path(percentEncoded: false)`로 넘긴다.
+        - D19. 패키지·프로덕트·타깃 이름은 모두 `SlopDisk`. `Sources/SlopDisk`, `Tests/SlopDiskTests`로 옮긴다. 최상위 디렉터리 `slopdisk/`는 Xcode 워크스페이스(`../SnakeStick.xcworkspace`, `group:slopdisk`)가 참조하므로 그대로 둔다.
+        - D20. `sdinspect`는 읽기 전용이고 인자 파싱을 직접 구현한다. 외부 의존성은 없다.
+        - D21. 외부 도구 교차검증은 macOS 내장 도구만 쓴다. 도구가 없는 환경(Linux 등)에서는 해당 테스트를 skip한다. `hdiutil attach`를 쓰는 테스트는 환경변수 `SLOPDISK_TEST_HDIUTIL_ATTACH=1`일 때만 돈다.
+        - D22. 최소 macOS 13.
+        - D23. GUID 지정: `addPartition(..., uniqueID: UUID? = nil)`, `clear(diskID: UUID? = nil)`. nil이면 랜덤(`UUID()`). 같은 입력이면 바이트 단위로 같은 이미지가 나와야 한다.
+        - D24. 인메모리 백엔드는 64 KiB 청크 희소 맵이다. 쓴 적 없는 영역은 0으로 읽히고, 내용을 꺼내는 API를 둔다.
+        - D25. `desiredSize`는 섹터 크기의 배수로 올림한다. GPT를 담을 수 없으면 `.diskTooSmall`. 실제 크기는 `disk.size`로 본다.
+        - D26. 파일 잠금은 flock. readWrite는 `LOCK_EX|LOCK_NB`, readOnly는 `LOCK_SH|LOCK_NB`. 실패하면 `.locked`. `SDDiskImage.open(_:mode:)`에 `.readOnly`를 둔다.
+        - D27. 트랜잭션 객체는 `SDTransaction: ~Copyable`이고 `withTransaction<R>(_ body: (inout SDTransaction) throws -> R) throws -> R`로 넘긴다. 탈출과 복사는 컴파일러가 막는다.
+        - D28. 에러는 단일 `SDError`. 라이브러리 함수는 `throws(SDError)`. 예외는 `withTransaction` 하나다. 본문 클로저가 임의 에러를 던질 수 있어서 untyped다. `SDBlockDevice` 요구사항도 `throws(SDError)`이고, 외부 구현체용으로 `.device(description:)` 케이스를 둔다.
+        - D29. (20에서 구현) 실디바이스 opt-in은 init의 명시 토큰 `acknowledging: .dataLossRisk`.
+        - D30. git 저장소를 만들지 않는다. 커밋하지 않는다.
+        - D31. README SYNOPSIS: 16 GiB 인메모리 이미지, EFI 400 MiB + WIN11ISO 8192 MiB. 초안의 `.gigabytes(8192)`는 `.megabytes(8192)`의 오타로 판단했다(사용자 확인).
+    </decisions>
+
+    <decisions source="planner">
+        사용자 결정에서 파생된 세부. 어긋나면 멈추고 보고한다.
+
+        - P1. `.remaining`: `at:`이 없으면 first-fit으로 고른 첫 빈 구간(정렬된 시작 ≤ 구간 끝인 것)의 끝까지 채운다. `at:`이 있으면 그 LBA가 속한 빈 구간의 끝까지. sgdisk의 `-n 0:0:0`과 같다. D6(first-fit, sgdisk와 동일)에서 파생.
+        - P2. `disk.partitions`, `txn.partitions`는 슬롯 index 오름차순이다.
+        - P3. 보호 MBR을 쓸 때 LBA0의 0..<446(부트 코드 + 디스크 시그니처)은 0으로 채운다. 이유: 이전 LBA0에 FAT VBR이 있던 디스크(슈퍼플로피)에서 BPB가 남으면 일부 OS가 GPT 대신 FAT로 인식한다.
+        - P4. 쓰기는 항상 엔트리 128개 × 128바이트다. 읽기는 규격이 허용하는 다른 값(엔트리 크기 128 × 2^n, 개수 임의)도 받는다. 쓸 때 index ≥ 128인 사용 슬롯이 있으면 `.tooManyPartitions`.
+        - P5. `SDDiskImage.open(.inMemory)`는 `.invalidArgument`. SYNOPSIS 모양(`open(.file(...))`)을 지키려고 소스 enum을 공유한 대가다.
+        - P6. 읽기 결과는 `SDInspection` 공개 구조체로 한 번 만든다. 이 구조체는 손상이 있어도 throw하지 않고 I/O 오류에서만 throw한다. `SDDisk`와 `sdinspect`는 둘 다 이것에서 파생한다. 이유: 양쪽 손상(`.gptUnrecoverable`)에서도 sdinspect가 헤더를 보여줄 수 있어야 한다.
+        - P7. 슬롯은 압축하지 않는다. 삭제한 슬롯은 비워 두고, 추가할 때는 가장 낮은 빈 슬롯을 쓴다(sgdisk와 같다. Linux의 `/dev/sdX1` 번호가 유지된다).
+        - P8. 교차검증 도구로 `hdiutil`뿐 아니라 `/usr/sbin/gpt`도 쓴다. D21의 취지(추가 설치가 필요 없는 macOS 내장 도구)와 맞고, attach 없이 이미지 파일을 직접 읽는다(F6).
+        - P9. `sdinspect` 종료 코드: 0 = healthy GPT / none / mbr, 1 = degraded GPT, 2 = gptUnrecoverable, 64 = 사용법 오류, 74 = I/O 오류.
+        - P10. 주·백업이 둘 다 유효한데 내용이 다르면 주 사본을 채택하고 `.copiesDiffer`를 보고한다.
+    </decisions>
+
+    <findings>
+        플래너가 2026-09-30 이 머신(macOS 26, arm64)에서 실행해 확인한 사실. 다시 조사하지 않는다.
+
+        - F1. 현재 저장소 (`cat -n`으로 확인):
+              `Package.swift` — tools 6.4, 패키지·타깃 이름 `slopdisk`, 두 타깃 모두 `.enableUpcomingFeature("ApproachableConcurrency")`, `platforms` 없음.
+              `Sources/slopdisk/SDDisk.swift` — 빈 `protocol SDDisk`.
+              `Sources/slopdisk/SDDiskImage.swift` — `enum SDDiskImageSource { case file(URL); case inMemory }`, 빈 `protocol SDDiskImage: SDDisk`, 반환문이 없는 `static func create`. 컴파일되지 않는다.
+              `Sources/slopdisk/slopdisk.swift` — `hello()` 템플릿.
+              `Tests/slopdiskTests/slopdiskTests.swift` — 빈 Swift Testing 템플릿.
+              전부 교체 대상이다. 스켈레톤 파일 헤더 주석의 작성자 표기(`Created by Gyuhwan Park on 9/30/26.`) 형식은 새 파일에서도 유지한다.
+        - F2. 툴체인: `swift --version` → Apple Swift 6.4 (swiftlang-6.4.0.34.1), Target arm64-apple-macosx26.0.
+        - F3. `slopdisk/`와 상위 `SnakeStick/` 모두 git 저장소가 아니다(`git rev-parse` 실패).
+        - F4. `hdiutil create -size 8m -layout GPTSPUD -type UDIF <name>`은 트레일러가 없는 raw GPT 이미지를 만든다. 파일 크기가 정확히 8388608이고, `hdiutil imageinfo`는 Class Name을 CRawDiskImage, Format을 UDRW로 보고한다. 확장자는 `.dmg`가 붙지만 내용은 raw다.
+              `-fs "MS-DOS FAT32"`를 붙이면 이 세션 샌드박스에서 "작업이 허용되지 않음"으로 실패했다. fixture 생성에는 `-fs`를 붙이지 않는다.
+        - F5. F4 fixture(8 MiB)의 실측값. 바이트는 `<code id="fixture-bytes">`에 있다. zlib로 CRC를 재계산해 모두 일치함을 확인했다.
+              섹터 16384개, 주 헤더 LBA1, 백업 헤더 LBA 16383(AlternateLBA=1, PartitionEntryLBA=16351), FirstUsable=34, LastUsable=16350.
+              헤더 CRC 0xD475B8E1, 엔트리 배열 CRC 0x1FF594BB(엔트리 1~127은 전부 0), LBA1의 92바이트 이후와 LBA0 부트 코드 영역은 전부 0.
+              디스크 GUID FB4AD73B-FC60-4817-BD0A-BCEC080BA8CD.
+              엔트리 0: 타입 48465300-0000-11AA-AA11-00306543ECAC(HFS+), 고유 GUID 5C98F85E-9E26-4422-BA5F-330EA56A9500(`hdiutil imageinfo`의 partition-UUID와 일치), LBA 40~16343, 레이블 "disk image". hdiutil은 1 MiB가 아니라 4 KiB로 정렬한다.
+              보호 MBR 엔트리의 시작 CHS는 `FE FF FF`다. UEFI 규격 값 `00 02 00`과 다르다. 읽을 때는 둘 다 받아들인다.
+        - F6. `/usr/sbin/gpt`(macOS 기본 탑재)는 일반 파일에 대해 `gpt -r show <image>`로 동작한다. `-l`이 없으면 contents 열에 `GPT part - <타입 GUID 대문자>`, `-l`이 있으면 `GPT part - "<레이블>"`을 찍는다.
+              빈(전부 0) 이미지에서도 exit 0이므로 판정은 출력을 파싱해서 한다. F4 fixture 출력:
+              `     40  16304      1  GPT part - "disk image"` (start, size, index, contents)
+        - F7. `hdiutil imageinfo -plist <image>`는 attach 없이 `partition-scheme`(GUID)과 파티션별 `partition-start` / `partition-length` / `partition-name` / `partition-UUID`를 plist로 준다.
+        - F8. `hdiutil attach -nomount -imagekey diskimage-class=CRawDiskImage <image>`가 이 세션(비root, 샌드박스)에서 동작했다. 출력 1행은 `/dev/diskN<TAB>GUID_partition_scheme`이고, 이어서 `/dev/diskNsK<TAB><content-hint>` 행이 나온다.
+              생성된 `/dev/rdiskN`은 호출 사용자 소유(`crw-r-----`)이고 root 없이 O_RDWR로 열렸다. 분리는 `hdiutil detach /dev/diskN`.
+        - F9. attach 상태에서 `newfs_msdos -F 32 -v WIN11ISO /dev/rdiskNs1`과 `fsck_msdos -n /dev/rdiskNs1`이 root 없이 성공했다. D4의 호출자 경로가 실제로 동작한다.
+        - F10. `sgdisk`, `sfdisk`는 설치되어 있지 않다(`which`). 사용하지 않는다(D21).
+    </findings>
+
+    <reference name="현재 매니페스트" path="Package.swift" role="수정 대상. §1">
+        재작성하되 swift-tools-version 6.4와 ApproachableConcurrency 설정은 유지한다.
+    </reference>
+    <reference name="초안" path="Prompts/00-metainit.xml" role="SYNOPSIS 원형. 읽기 전용">
+        README SYNOPSIS의 원래 모양이다. 수정하지 않는다.
+    </reference>
+    <reference name="후속 지시서" path="Prompts/20-raw-device.xml" role="범위 경계 확인용. 수정하지 않는다">
+        `SDBlockDevice` 계약이 실디바이스에서도 성립해야 한다. 요구사항은 섹터 정렬 I/O와 `isReadOnly`다. 그 외 내용은 20이 맡는다.
+    </reference>
+    <reference name="README / CLAUDE.md" path="README.md, CLAUDE.md" role="00-metainit이 작성. 구현 후 갱신 대상">
+        API 이름이 이 지시서와 달라지면 두 문서를 함께 고친다(`<closing>`).
+    </reference>
+
+    <code id="layout" lang="text/plain">
+        slopdisk/                              (디렉터리 이름 유지, D19)
+        ├── Package.swift                      name "SlopDisk", platforms [.macOS(.v13)]
+        ├── README.md / CLAUDE.md
+        ├── Prompts/
+        ├── Sources/
+        │   ├── SlopDisk/
+        │   │   ├── SDSize.swift               SDSize, SDPartitionExtent
+        │   │   ├── SDError.swift
+        │   │   ├── SDBlockDevice.swift        protocol + SDOpenMode
+        │   │   ├── Devices/
+        │   │   │   ├── SDMemoryBlockDevice.swift
+        │   │   │   └── SDFileBlockDevice.swift
+        │   │   ├── Model/                     SDPartition, SDPartitionType, SDPartitionAttributes,
+        │   │   │                              SDPartitionScheme, SDGPTHealth, SDMBRPartition
+        │   │   ├── OnDisk/                    internal 코덱: CRC32, GUIDCodec, ProtectiveMBR,
+        │   │   │                              GPTHeader, GPTEntry, UTF16Label, GPTGeometry
+        │   │   ├── SDInspection.swift         읽기 경로 (P6)
+        │   │   ├── SDDisk.swift
+        │   │   ├── SDTransaction.swift
+        │   │   └── SDDiskImage.swift          팩토리 + SDDiskImageSource
+        │   └── sdinspect/
+        │       └── main.swift                 (파일 분할은 실행자 재량)
+        └── Tests/
+            └── SlopDiskTests/                 파일 분할은 실행자 재량. §10 참조
+        (위 파일 분할은 권장안이다. 공개 심볼 이름과 타깃 구성이 계약이다.)
+    </code>
+
+    <code id="api" lang="text/x-pseudocode; variant=swift+imagine">
+        import Foundation                                // 실제 의존. 외부 패키지 없음.
+
+        // ───────────── 크기 ─────────────
+
+        @location('Sources/SlopDisk/SDSize.swift')
+        imagine struct SDSize: Hashable, Comparable, Sendable, CustomStringConvertible {
+            var bytes: UInt64
+            static func bytes(_ n: some BinaryInteger) -> SDSize
+            static func kilobytes(_ n: some BinaryInteger) -> SDSize      // × 1024
+            static func megabytes(_ n: some BinaryInteger) -> SDSize      // × 1024²
+            static func gigabytes(_ n: some BinaryInteger) -> SDSize      // × 1024³
+            static func terabytes(_ n: some BinaryInteger) -> SDSize      // × 1024⁴
+
+            requirements(`
+                이진 단위만 쓴다 (D3). 음수와 UInt64 오버플로는 precondition 실패로 처리한다.
+                description은 값이 1 이상이 되는 가장 큰 단위(B, KiB, MiB, GiB, TiB)로 쓰고,
+                소수점 이하는 최대 2자리까지만 보이며 끝의 0과 점은 지운다.
+            `);
+            ensure(SDSize.megabytes(400).bytes == 419_430_400);
+            ensure(SDSize.megabytes(400).description == "400 MiB");
+            ensure(SDSize.megabytes(8192).description == "8 GiB");
+            ensure(SDSize.bytes(512).description == "512 B");
+            ensure(SDSize.bytes(1536).description == "1.5 KiB");
+        }
+
+        @location('Sources/SlopDisk/SDSize.swift')
+        imagine enum SDPartitionExtent: Hashable, Sendable {
+            case size(SDSize)
+            case remaining                                   // P1
+            // hint: `.megabytes(400)`을 이 타입 문맥에서도 쓸 수 있게 SDSize와 같은 이름의 static 팩토리 5개를 둔다.
+        }
+
+        // ───────────── 에러 ─────────────
+
+        @location('Sources/SlopDisk/SDError.swift')
+        enum SDError: Error, Hashable, Sendable {
+            // hint: 케이스 이름은 계약이다. 연관값의 세부 모양은 실행자가 정한다.
+            case io(operation: String, errno: Int32)
+            case device(description: String)                 // 외부 SDBlockDevice 구현체용 (D28)
+            case invalidArgument(String)
+            case fileExists(path: String)                    // D15
+            case locked(path: String)                        // D26
+            case readOnly
+            case diskTooSmall(minimum: SDSize)               // D25
+            case gptUnrecoverable                            // D13
+            case schemeNotGPT                                // D12
+            case transactionFinished                         // D8
+            case transactionInProgress                       // §5 재진입
+            case labelTooLong(utf16Count: Int)               // D17
+            case invalidPartitionType                        // 전부 0인 GUID
+            case insufficientSpace(requested: SDSize)
+            case outOfUsableRange
+            case overlapsExistingPartition(SDPartition.ID)
+            case tooManyPartitions                           // P4
+            case partitionNotFound(SDPartition.ID)
+            case duplicateUniqueID(UUID)
+            case verificationFailed(String)                  // D11
+        }
+
+        // ───────────── 블록 디바이스 ─────────────
+
+        @location('Sources/SlopDisk/SDBlockDevice.swift')
+        public protocol SDBlockDevice: AnyObject {
+            var sectorSize: Int { get }                      // 512 또는 4096
+            var sectorCount: UInt64 { get }
+            var isReadOnly: Bool { get }
+            func read(lba: UInt64, into buffer: UnsafeMutableRawBufferPointer) throws(SDError)
+            func write(lba: UInt64, from buffer: UnsafeRawBufferPointer) throws(SDError)
+            func synchronize() throws(SDError)
+            // hint: buffer.count는 sectorSize의 배수여야 하고 lba + buffer.count / sectorSize <= sectorCount여야 한다.
+            //       위반하면 .invalidArgument. isReadOnly인데 write를 부르면 .readOnly.
+        }
+        public enum SDOpenMode: Sendable { case readOnly, readWrite }
+
+        @location('Sources/SlopDisk/Devices/SDMemoryBlockDevice.swift')
+        imagine final class SDMemoryBlockDevice: SDBlockDevice {
+            init(sectorSize: Int, sectorCount: UInt64)
+            var allocatedByteCount: Int { get }
+            func bytes(atByteOffset offset: UInt64, count: Int) -> [UInt8]
+            func export(toFile path: String) throws(SDError)
+
+            requirements(`
+                64 KiB 청크 단위의 희소 저장소다 (D24). 쓴 적 없는 청크는 할당하지 않고 읽으면 0이 나온다.
+                synchronize()는 아무것도 하지 않는다. isReadOnly는 항상 false다.
+                export는 할당된 청크만 pwrite하고 ftruncate로 전체 크기를 맞춘 희소 파일을 만든다.
+                대상 파일이 이미 있으면 .fileExists.
+            `);
+            ensure(`8 TiB(섹터 512) 디바이스를 만든 직후 allocatedByteCount == 0`);
+            ensure(`LBA 0에 한 섹터를 쓰면 allocatedByteCount == 65536`);
+            ensure(`쓰지 않은 임의의 LBA를 읽으면 전부 0`);
+            ensure(`export한 파일을 SDFileBlockDevice로 열어 읽은 바이트 == 원본 bytes(atByteOffset:count:)`);
+        }
+
+        @location('Sources/SlopDisk/Devices/SDFileBlockDevice.swift')
+        imagine final class SDFileBlockDevice: SDBlockDevice {
+            static func create(path: String, byteCount: UInt64, sectorSize: Int) throws(SDError) -> SDFileBlockDevice
+            init(path: String, mode: SDOpenMode, sectorSize: Int) throws(SDError)
+            let path: String
+
+            requirements(`
+                create는 open(O_RDWR|O_CREAT|O_EXCL, 0644)로 연다. EEXIST면 .fileExists (D15).
+                  크기는 ftruncate로 잡아 희소 파일이 되게 한다. create로 연 디바이스는 readWrite다.
+                init은 기존 파일을 연다. sectorCount = 파일 크기 / sectorSize이고 남는 바이트는 무시한다.
+                flock은 readWrite면 LOCK_EX|LOCK_NB, readOnly면 LOCK_SH|LOCK_NB로 건다.
+                  EWOULDBLOCK이면 .locked(path:) (D26).
+                read/write는 pread/pwrite를 루프로 돌린다. 짧은 I/O와 EINTR을 처리한다.
+                synchronize는 Darwin이면 fcntl(F_FULLFSYNC)을 쓰고, 실패하면 fsync로 폴백한다. Linux는 fsync다.
+                deinit에서 close한다(잠금도 함께 풀린다).
+            `);
+            ensure(`같은 경로를 readWrite로 두 번 열면 두 번째가 .locked`);
+            ensure(`같은 경로를 readOnly로 두 번 열면 둘 다 성공`);
+            ensure(`readOnly로 열린 동안 readWrite 열기는 .locked`);
+            ensure(`create 대상이 이미 있으면 .fileExists를 던지고 기존 파일 내용은 그대로`);
+        }
+
+        // ───────────── 모델 ─────────────
+
+        @location('Sources/SlopDisk/Model/')
+        imagine struct SDPartitionType: Hashable, Sendable, CustomStringConvertible {
+            var guid: UUID
+            init(guid: UUID)
+            var name: String?                                // 아는 타입이면 사람이 읽을 이름
+            static let efiSystem          // C12A7328-F81F-11D2-BA4B-00A0C93EC93B  "EFI System"
+            static let microsoftBasicData // EBD0A0A2-B9E5-4433-87C0-68B6B72699C7  "Microsoft Basic Data"
+            static let microsoftReserved  // E3C9E316-0B5C-4DB8-817D-F92DF00215AE  "Microsoft Reserved"
+            static let microsoftRecovery  // DE94BBA4-06D1-4D40-A16A-BFD50179D6AC  "Windows Recovery"
+            static let biosBoot           // 21686148-6449-6E6F-744E-656564454649  "BIOS Boot"
+            static let linuxFilesystem    // 0FC63DAF-8483-4772-8E79-3D69D8477DE4  "Linux Filesystem"
+            static let linuxSwap          // 0657FD6D-A4AB-43C4-84E5-0933C84B4F4F  "Linux Swap"
+            static let appleAPFS          // 7C3457EF-0000-11AA-AA11-00306543ECAC  "Apple APFS"
+            static let appleHFSPlus       // 48465300-0000-11AA-AA11-00306543ECAC  "Apple HFS+"
+            requirements(`
+                모르는 GUID도 그대로 보존한다. description은 name이 있으면 name, 없으면 GUID 대문자 문자열이다.
+                .fat32는 만들지 않는다 (D7).
+            `);
+        }
+
+        imagine struct SDPartitionAttributes: OptionSet, Hashable, Sendable {
+            var rawValue: UInt64
+            static let requiredPartition   // bit 0
+            static let noBlockIOProtocol   // bit 1
+            static let legacyBIOSBootable  // bit 2
+            static let msReadOnly          // bit 60 (Microsoft Basic Data 전용)
+            static let msShadowCopy        // bit 61
+            static let msHidden            // bit 62
+            static let msNoDriveLetter     // bit 63
+            requirements(`모르는 비트도 읽고 쓸 때 그대로 보존한다.`);
+        }
+
+        imagine struct SDPartition: Identifiable, Hashable, Sendable {
+            var id: UUID { uniqueID }
+            let index: Int                                   // 엔트리 슬롯 (0부터)
+            let type: SDPartitionType
+            let uniqueID: UUID
+            let begin: UInt64                                // first LBA
+            let end: UInt64                                  // last LBA, 포함 (D16)
+            let attributes: SDPartitionAttributes
+            let label: String
+            let sectorSize: Int
+            var size: SDSize                                 // (end - begin + 1) * sectorSize
+            var lbaRange: ClosedRange<UInt64>
+            var byteOffset: UInt64                           // begin * sectorSize
+        }
+
+        imagine enum SDPartitionScheme: Hashable, Sendable {
+            case none                                        // GPT 증거도, 유효한 MBR도 없음
+            case gpt(SDGPTHealth)
+            case mbr([SDMBRPartition])                       // 보호 MBR이 아닌 실제 MBR. 읽기 전용 보고
+        }
+
+        imagine enum SDGPTHealth: Hashable, Sendable {
+            case healthy
+            case degraded(Set<SDGPTIssue>)
+        }
+
+        imagine enum SDGPTIssue: Hashable, Sendable {
+            case primaryHeaderInvalid(SDGPTHeaderDamage)
+            case primaryEntriesCRCMismatch
+            case backupHeaderInvalid(SDGPTHeaderDamage)
+            case backupEntriesCRCMismatch
+            case backupNotAtEndOfDisk                        // AlternateLBA != 마지막 LBA (이미지를 늘린 경우)
+            case protectiveMBRMissing                        // GPT는 유효하나 LBA0에 0xEE가 없음
+            case hybridMBR                                   // 0xEE 외 MBR 엔트리 존재. commit/repair 시 사라짐
+            case copiesDiffer                                // P10
+            case invalidEntries                              // CRC는 맞으나 겹침·범위 밖 엔트리
+        }
+        imagine enum SDGPTHeaderDamage: Hashable, Sendable { case signature, headerCRC, fields }
+
+        imagine struct SDMBRPartition: Hashable, Sendable {
+            let index: Int                                   // 0..<4
+            let isBootable: Bool
+            let type: UInt8
+            let firstLBA: UInt32
+            let sectorCount: UInt32
+        }
+
+        // ───────────── 읽기 (P6) ─────────────
+
+        @location('Sources/SlopDisk/SDInspection.swift')
+        imagine struct SDInspection: Sendable {
+            static func read(from device: any SDBlockDevice) throws(SDError) -> SDInspection
+            let sectorSize: Int
+            let sectorCount: UInt64
+            let mbr: MBRReport                               // 시그니처, 원시 엔트리 4개, 보호/하이브리드/일반 판정
+            let primary: HeaderReport?                       // LBA1. 시그니처가 없으면 nil
+            let backup: HeaderReport?                        // 주의 AlternateLBA, 없으면 마지막 LBA
+            let scheme: Result<SDPartitionScheme, SDError>   // 판정 결과. 양쪽 손상이면 .failure(.gptUnrecoverable)
+            let diskID: UUID?
+            let partitions: [SDPartition]                    // 채택된 사본 기준
+
+            imagine struct HeaderReport: Sendable {
+                let lba: UInt64
+                let damage: SDGPTHeaderDamage?               // nil이면 헤더 유효
+                let storedHeaderCRC: UInt32, computedHeaderCRC: UInt32
+                let storedEntriesCRC: UInt32, computedEntriesCRC: UInt32?
+                // + 헤더 필드 전부 (MyLBA, AlternateLBA, FirstUsable, LastUsable, DiskGUID, EntryLBA, 개수, 크기)
+            }
+            requirements(`
+                손상이 있어도 throw하지 않고 I/O 오류에서만 throw한다. 판정 알고리즘은 §4를 따른다.
+                sdinspect가 이 구조체 하나로 모든 출력을 만들 수 있어야 한다.
+            `);
+        }
+
+        // ───────────── 디스크 ─────────────
+
+        @location('Sources/SlopDisk/SDDisk.swift')
+        imagine final class SDDisk {
+            init(device: any SDBlockDevice, ignoringExistingTable: Bool = false) throws(SDError)
+            let device: any SDBlockDevice
+            var sectorSize: Int { get }
+            var sectorCount: UInt64 { get }
+            var size: SDSize { get }
+            private(set) var scheme: SDPartitionScheme
+            private(set) var partitions: [SDPartition]      // P2
+            private(set) var diskID: UUID?                  // GPT일 때만
+            func refresh() throws(SDError)
+            func repair() throws(SDError)
+            func withTransaction<R>(_ body: (inout SDTransaction) throws -> R) throws -> R
+
+            requirements(`§4, §5, §7을 따른다. non-Sendable이다 (D14).`);
+            ensure(`F4 fixture를 열면 scheme == .gpt(.healthy), partitions.count == 1, begin 40, end 16343, label "disk image"`);
+            ensure(`주 헤더의 바이트 오프셋 512 + 40(FirstUsableLBA)을 1 증가시킨 뒤 열면 .gpt(.degraded(primaryHeaderInvalid(.headerCRC)을 포함)), partitions는 동일, 디바이스 바이트는 불변`);
+            ensure(`그 상태에서 repair() 후 refresh()하면 .gpt(.healthy)`);
+            ensure(`주·백업 헤더를 모두 훼손하면 init이 .gptUnrecoverable을 던지고, ignoringExistingTable: true로는 scheme == .none으로 열림`);
+        }
+
+        @location('Sources/SlopDisk/SDTransaction.swift')
+        imagine struct SDTransaction: ~Copyable {
+            var partitions: [SDPartition] { get }           // 스테이징 상태, P2
+            mutating func clear(diskID: UUID? = nil)
+            @discardableResult
+            mutating func addPartition(_ extent: SDPartitionExtent,
+                                       type: SDPartitionType,
+                                       label: String = "",
+                                       attributes: SDPartitionAttributes = [],
+                                       at startLBA: UInt64? = nil,
+                                       uniqueID: UUID? = nil) throws(SDError) -> SDPartition
+            mutating func removePartition(_ id: SDPartition.ID) throws(SDError)
+            mutating func setLabel(_ label: String, of id: SDPartition.ID) throws(SDError)
+            mutating func setType(_ type: SDPartitionType, of id: SDPartition.ID) throws(SDError)
+            mutating func setAttributes(_ attributes: SDPartitionAttributes, of id: SDPartition.ID) throws(SDError)
+            @discardableResult
+            mutating func resizePartition(_ id: SDPartition.ID, to extent: SDPartitionExtent) throws(SDError) -> SDPartition
+            mutating func commit() throws(SDError)
+
+            requirements(`§6, §7을 따른다.`);
+            ensure(`빈 16 GiB(512) 디스크에서 clear 후 .megabytes(400) EFI → begin 2048, end 821247`);
+            ensure(`이어서 .megabytes(8192) → begin 821248, end 17598463, size.description == "8 GiB"`);
+            ensure(`64 MiB(512) 디스크에서 clear 후 .megabytes(16) EFI, .remaining → 두 번째는 begin 34816, end 131038`);
+            ensure(`64 MiB(4096) 디스크에서 같은 조작 → 첫 번째 begin 256, 두 번째 end == sectorCount - 1 - 1 - 4`);
+            ensure(`레이블 "윈도우설치" (5유닛)는 통과, "💾" × 18 (36유닛)은 통과, "💾" × 19 (38유닛)은 .labelTooLong`);
+            ensure(`commit 없이 클로저가 끝나면 디바이스 바이트 불변, disk.partitions 불변`);
+            ensure(`commit 후 addPartition → .transactionFinished`);
+            ensure(`.mbr 또는 .none 디스크에서 clear 없이 addPartition → .schemeNotGPT`);
+        }
+
+        // ───────────── 팩토리 ─────────────
+
+        @location('Sources/SlopDisk/SDDiskImage.swift')
+        public enum SDDiskImageSource: Sendable {
+            case file(String)                                // D18
+            case inMemory                                    // D24
+        }
+
+        @location('Sources/SlopDisk/SDDiskImage.swift')
+        imagine enum SDDiskImage {
+            static func create(_ source: SDDiskImageSource, desiredSize: SDSize, sectorSize: Int = 512) throws(SDError) -> SDDisk
+            static func open(_ source: SDDiskImageSource, mode: SDOpenMode = .readWrite, sectorSize: Int? = nil) throws(SDError) -> SDDisk
+            requirements(`§8을 따른다.`);
+            ensure(`create(.inMemory, desiredSize: .bytes(1_048_577)) → size.bytes == 1_049_088 (섹터 512 배수로 올림)`);
+            ensure(`create(.inMemory, desiredSize: .bytes(512 * 67)) → .diskTooSmall`);
+            ensure(`create 직후 scheme == .none, partitions.isEmpty`);
+            ensure(`open(.inMemory) → .invalidArgument`);
+            ensure(`4096 섹터로 만든 파일 이미지를 sectorSize: nil로 open → sectorSize == 4096`);
+        }
+    </code>
+
+    <code id="gpt-layout" lang="text/plain">
+        규격 요약 (UEFI 2.x §5). 모든 정수는 리틀 엔디언이다.
+
+        S  = sectorSize (512 | 4096)
+        N  = sectorCount
+        ES = (128 × 128) / S = 32 | 4                엔트리 배열 섹터 수 (쓰기 기준, P4)
+        LBA 0                        보호 MBR
+        LBA 1                        주 GPT 헤더
+        LBA 2 ..< 2+ES               주 엔트리 배열
+        FirstUsableLBA = 2 + ES      (34 | 6)
+        LastUsableLBA  = N - 2 - ES
+        LBA N-1-ES ..< N-1           백업 엔트리 배열
+        LBA N-1                      백업 GPT 헤더
+        정렬 단위 A = 1 MiB / S       (2048 | 256)
+        최소 N = 2·ES + 4            (68 | 12)  미만이면 .diskTooSmall
+
+        보호 MBR (LBA0의 처음 512바이트. 4Kn이면 나머지 3584바이트는 0)
+          0   ..< 446   0으로 채움 (P3)
+          446 ..< 462   엔트리 0: status 00 | 시작 CHS 00 02 00 | type EE | 끝 CHS FF FF FF
+                        | 시작 LBA u32 = 1 | 크기 u32 = min(N - 1, 0xFFFFFFFF)
+          462 ..< 510   엔트리 1~3: 0
+          510 ..< 512   55 AA
+
+        GPT 헤더
+          off size
+          0   8   Signature "EFI PART"
+          8   4   Revision 0x00010000
+          12  4   HeaderSize = 92
+          16  4   HeaderCRC32 — 이 필드를 0으로 둔 상태에서 HeaderSize 바이트에 대해 계산
+          20  4   Reserved = 0
+          24  8   MyLBA
+          32  8   AlternateLBA
+          40  8   FirstUsableLBA
+          48  8   LastUsableLBA
+          56  16  DiskGUID (혼합 엔디언)
+          72  8   PartitionEntryLBA        (주: 2, 백업: N-1-ES)
+          80  4   NumberOfPartitionEntries (쓰기: 128)
+          84  4   SizeOfPartitionEntry     (쓰기: 128)
+          88  4   PartitionEntryArrayCRC32 — Number × Size 바이트 전체에 대해 계산
+          92  ..  섹터 끝까지 0
+
+        파티션 엔트리 (128바이트)
+          0   16  PartitionTypeGUID (혼합 엔디언. 전부 0이면 빈 슬롯)
+          16  16  UniquePartitionGUID
+          32  8   StartingLBA
+          40  8   EndingLBA (포함)
+          48  8   Attributes
+          56  72  PartitionName: UTF-16LE 36유닛, 남는 자리는 0으로 채움
+
+        혼합 엔디언 GUID
+          텍스트 AABBCCDD-EEFF-GGHH-IIJJ-KKLLMMNNOOPP
+          바이트 DD CC BB AA  FF EE  HH GG  II JJ  KK LL MM NN OO PP
+
+        CRC32: IEEE 802.3, 반사 다항식 0xEDB88320, 초기값 0xFFFFFFFF, 최종 XOR 0xFFFFFFFF (zlib crc32와 같다).
+    </code>
+
+    <code id="fixture-bytes" lang="text/plain">
+        # F4 fixture에서 추출한 골든 바이트 (F5). 테스트에 그대로 옮긴다.
+
+        # LBA1 주 헤더, 92바이트 (나머지 420바이트는 0)
+        45 46 49 20 50 41 52 54 00 00 01 00 5c 00 00 00
+        e1 b8 75 d4 00 00 00 00 01 00 00 00 00 00 00 00
+        ff 3f 00 00 00 00 00 00 22 00 00 00 00 00 00 00
+        de 3f 00 00 00 00 00 00 3b d7 4a fb 60 fc 17 48
+        bd 0a bc ec 08 0b a8 cd 02 00 00 00 00 00 00 00
+        80 00 00 00 80 00 00 00 bb 94 f5 1f
+
+        # LBA2 엔트리 0, 128바이트 (엔트리 1~127은 전부 0)
+        00 53 46 48 00 00 aa 11 aa 11 00 30 65 43 ec ac
+        5e f8 98 5c 26 9e 22 44 ba 5f 33 0e a5 6a 95 00
+        28 00 00 00 00 00 00 00 d7 3f 00 00 00 00 00 00
+        00 00 00 00 00 00 00 00 64 00 69 00 73 00 6b 00
+        20 00 69 00 6d 00 61 00 67 00 65 00 00 00 00 00
+        00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+        00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+        00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+        # LBA0 오프셋 446, 보호 MBR 엔트리 0 (Apple 방식 시작 CHS FE FF FF)
+        00 fe ff ff ee fe ff ff 01 00 00 00 ff 3f 00 00
+
+        # 기대값
+        header CRC32  = 0xD475B8E1   (CRC 필드를 0으로 두고 92바이트 계산)
+        entries CRC32 = 0x1FF594BB   (엔트리 0 + 0으로 채운 127개 = 16384바이트)
+        crc32("123456789") = 0xCBF43926
+        DiskGUID      = FB4AD73B-FC60-4817-BD0A-BCEC080BA8CD
+        entry0 type   = 48465300-0000-11AA-AA11-00306543ECAC
+        entry0 unique = 5C98F85E-9E26-4422-BA5F-330EA56A9500
+        entry0 LBA    = 40 ... 16343, label "disk image"
+    </code>
+
+    <code id="synopsis" name="README.md SYNOPSIS" lang="swift">
+        import Foundation
+        import SlopDisk
+
+        let disk = try SDDiskImage.create(.inMemory, desiredSize: .gigabytes(16))
+        // let disk = try SDDiskImage.open(.file("/tmp/disk-image.img"))
+        // try disk.refresh()
+
+        if disk.partitions.isEmpty {
+            print("== NO PARTITIONS ==")
+        } else {
+            for partition in disk.partitions {
+                print("Partition #\(partition.index): \(partition.begin) ~ \(partition.end) (\(partition.size))")
+            }
+        }
+
+        try disk.withTransaction { txn in
+            txn.clear()
+
+            try txn.addPartition(.megabytes(400), type: .efiSystem, label: "EFI")
+            try txn.addPartition(.megabytes(8192), type: .microsoftBasicData, label: "WIN11ISO")
+            // writes partition table and sync()
+            try txn.commit()
+        }
+    </code>
+
+    <specs>
+        §1. 패키지 재구성 (D2, D19, D20, D22)
+        - `Sources/slopdisk` → `Sources/SlopDisk`, `Tests/slopdiskTests` → `Tests/SlopDiskTests`로 옮긴다. `slopdisk.swift`(hello)와 스켈레톤 두 파일은 지운다(F1).
+        - Package.swift: `name: "SlopDisk"`, `platforms: [.macOS(.v13)]`.
+          products: `.library(name: "SlopDisk", targets: ["SlopDisk"])`, `.executable(name: "sdinspect", targets: ["sdinspect"])`.
+          targets: `SlopDisk`, `sdinspect`(SlopDisk에 의존), `SlopDiskTests`(SlopDisk에 의존). 세 타깃 모두 `.enableUpcomingFeature("ApproachableConcurrency")`를 유지한다.
+          외부 패키지 의존성은 0개다.
+        - 공개 API는 `code#api`의 심볼과 시그니처다. internal 헬퍼는 자유롭게 둔다.
+
+        §2. 온디스크 코덱 (internal, `OnDisk/`)
+        - `code#gpt-layout`을 그대로 구현한다. 모두 바이트 버퍼를 받는 순수 함수나 값 타입으로 만든다. 디바이스 없이 유닛 테스트가 가능해야 한다.
+        - CRC32는 테이블 방식으로 직접 구현한다. zlib은 쓰지 않는다(Linux 이식성과 자체 구현 선호).
+        - GUID는 Foundation `UUID`로 들고, 인코딩·디코딩 때만 혼합 엔디언으로 변환한다.
+        - 레이블: 인코딩은 `label.utf16`이고, 36유닛을 넘으면 `.labelTooLong`(D17). 디코딩은 첫 0x0000에서 끊고 `String(decoding:as: UTF16.self)`로 한다(짝이 없는 서로게이트는 U+FFFD).
+        - 헤더 검증 (하나라도 어기면 `damage`): 시그니처 → `.signature`. HeaderSize가 92..sectorSize를 벗어나거나 CRC가 틀리면 → `.headerCRC`.
+          다음 필드 모순은 → `.fields`: MyLBA가 읽은 위치와 다름, FirstUsable > LastUsable + 1, 사용 영역이 엔트리 배열이나 헤더와 겹침, 엔트리 크기가 128 × 2^n이 아님, 엔트리 배열이 디스크를 벗어남.
+        - 보호 MBR 읽기: 시작 CHS는 `00 02 00`과 `FE FF FF`(F5) 모두 받는다. 0xEE 엔트리 판단에는 type 바이트만 본다.
+
+        §3. 블록 디바이스
+        - `code#api`의 `SDMemoryBlockDevice`, `SDFileBlockDevice`를 구현한다.
+        - 섹터 경계를 넘지 않는 한, 여러 섹터를 한 번에 읽고 쓰는 것을 허용한다.
+
+        §4. 읽기 경로 (`SDInspection.read`, P6, P10, D12, D13)
+        판정 순서:
+        1. LBA0을 읽는다. 55 AA 시그니처 유무, 엔트리 4개, 0xEE 존재 여부(보호), 0xEE 외 엔트리 존재 여부(하이브리드)를 기록한다.
+        2. LBA1의 헤더를 검증한다(primary).
+        3. 백업 위치: primary 헤더가 유효하면 그 AlternateLBA를, 아니면 N-1을 본다.
+           primary의 AlternateLBA가 N-1이 아니면 `.backupNotAtEndOfDisk`로 기록한다.
+        4. 헤더가 유효한 사본마다 엔트리 배열을 읽고 CRC를 검증한다.
+        5. 채택: 헤더와 엔트리가 모두 유효한 사본 중 primary를 우선한다. 둘 다 유효한데 (DiskGUID, 사용 중 엔트리 집합, FirstUsable, LastUsable)가 다르면 `.copiesDiffer`를 기록한다.
+        6. 채택할 사본이 있으면 `.gpt(health)`. 기록한 이슈가 없으면 `.healthy`, 있으면 `.degraded(이슈 집합)`.
+           채택한 엔트리 중 겹치거나 [FirstUsable, LastUsable]를 벗어난 것이 있으면 `.invalidEntries`를 기록하되 그대로 노출한다.
+        7. 채택할 사본이 없을 때: GPT 증거(LBA1이나 N-1에 "EFI PART", 또는 LBA0에 0xEE)가 있으면 `.failure(.gptUnrecoverable)`.
+           증거가 없고 55 AA가 있으며 비어 있지 않은 엔트리가 하나 이상이면서 모든 엔트리가 타당하면(status가 00 또는 80, type이 0이 아님, 시작 ≥ 1, 시작 + 크기 ≤ N) `.mbr`.
+           그 밖에는 `.none`. (FAT 슈퍼플로피의 VBR은 55 AA를 갖지만 엔트리 타당성 검사에서 걸러진다.)
+        - 이 경로는 어떤 경우에도 디바이스에 쓰지 않는다(D13).
+
+        §5. SDDisk
+        - `init(device:ignoringExistingTable:)`: false면 `SDInspection.read`의 결과로 상태를 채우고, scheme이 `.failure`면 그 에러를 던진다. true면 읽지 않고 `.none`, 빈 파티션, diskID nil로 시작한다.
+        - `refresh()`: 캐시를 버리고 다시 읽는다. 실패하면 이전 상태를 유지한 채 throw한다.
+        - `repair()`: scheme이 `.gpt`일 때만 허용하고 아니면 `.schemeNotGPT`. 디바이스가 isReadOnly면 `.readOnly`.
+          현재 채택된 테이블(diskID, 엔트리 그대로)을 §7 절차로 다시 쓴다. 건강한 상태에서 불러도 결과는 같다(멱등).
+        - `withTransaction`: 디바이스가 isReadOnly면 본문을 실행하기 전에 `.readOnly`를 던진다.
+          본문 실행 중에 같은 disk의 `refresh`/`repair`/`withTransaction`을 부르면 `.transactionInProgress`(재진입 가드).
+          본문이 throw하면 스테이징을 폐기하고 그 에러를 다시 던진다. commit이 성공한 경우에만 disk의 상태를 재읽기 결과로 바꾼다.
+
+        §6. 트랜잭션 (D8, D9, D10, D23, D6, P1, P7)
+        - 스테이징 상태는 disk의 현재 테이블을 복사해 시작한다. diskID, 엔트리 슬롯, 헤더 기하는 현재 디바이스 크기 기준으로 다시 계산한다(§7).
+        - scheme이 `.gpt`가 아니면 `clear()` 전까지 모든 조작이 `.schemeNotGPT`를 던진다. `clear()` 뒤에는 빈 GPT다.
+        - `clear(diskID:)`: 모든 슬롯을 비우고 diskID를 인자 또는 새 랜덤 값으로 설정한다.
+        - `addPartition` 검증 순서: finished → scheme → 타입(전부 0이면 `.invalidPartitionType`) → 레이블 → uniqueID 중복 → 빈 슬롯(`.tooManyPartitions`) → 배치.
+          배치 규칙:
+          · 크기 = extent를 섹터 단위로 올림한 값. 0이면 `.invalidArgument`.
+          · `at` 없음: 빈 구간을 LBA 오름차순으로 훑는다. 각 구간에서 시작 = 구간 시작을 A 배수로 올린 값. 시작 + 크기 - 1 ≤ 구간 끝인 첫 구간을 쓴다. 없으면 `.insufficientSpace`.
+          · `.remaining`: 위와 같이 고른 첫 구간(시작 ≤ 구간 끝)에서 끝을 구간 끝으로 한다(P1).
+          · `at` 있음: 정렬을 강제하지 않는다. [FirstUsable, LastUsable] 밖이면 `.outOfUsableRange`. 기존 파티션과 겹치면 `.overlapsExistingPartition`. 들어갈 자리가 모자라면 `.insufficientSpace`.
+          · 슬롯은 가장 낮은 빈 index를 쓴다(P7).
+        - `removePartition`: 슬롯을 비운다. 다른 슬롯은 옮기지 않는다.
+        - `setLabel`/`setType`/`setAttributes`: 해당 필드만 바꾸고 레이블과 타입 검증은 add와 같다.
+        - `resizePartition`: begin은 고정이다. 새 end가 begin 미만이거나 다음 파티션과 겹치면 에러다. `.remaining`은 바로 뒤 빈 구간의 끝까지 늘린다(빈 구간이 없으면 현재 크기를 유지하고 성공한다). 파일시스템은 건드리지 않는다.
+        - ID로 찾지 못하면 `.partitionNotFound`. 읽어 온 테이블에 같은 uniqueID가 여럿이면 그 ID로 하는 조작은 `.duplicateUniqueID`.
+        - `commit()`: §7. 성공하면 finished 상태가 되고 이후 모든 조작은 `.transactionFinished`.
+
+        §7. 쓰기 절차 (commit / repair 공통, D11, P3, P4)
+        1. 기하는 현재 디바이스 기준으로 계산한다. ES, FirstUsable = 2 + ES, LastUsable = N - 2 - ES, 백업 헤더 = N-1.
+           이 계산으로 커진 이미지의 백업 재배치가 자연히 처리된다. 파티션이 새 [FirstUsable, LastUsable]를 벗어나면 `.outOfUsableRange`(쓰기 전에 검사).
+        2. 엔트리 배열(128 × 128 바이트)을 만들고 CRC를 계산한다. 주·백업 헤더를 각각 만든다(MyLBA, AlternateLBA, PartitionEntryLBA가 서로 다르므로 CRC도 각각 계산).
+        3. 쓰기 순서: 백업 엔트리 → 백업 헤더 → `synchronize()` → 주 엔트리 → 주 헤더 → 보호 MBR(LBA0 전체 섹터) → `synchronize()`.
+        4. `SDInspection.read`로 디바이스에서 다시 읽는다. `.gpt(.healthy)`여야 하고, (diskID, 슬롯별 엔트리, FirstUsable, LastUsable)이 스테이징과 같아야 한다. 아니면 `.verificationFailed(설명)`.
+        5. 성공하면 disk의 상태를 재읽기 결과로 바꾼다.
+        - 이전 백업 헤더가 다른 위치(이미지 확장 전의 N-1)에 남아도 지우지 않는다. 그 섹터가 파티션 안일 수 있기 때문이다. 도구들은 LBA1과 AlternateLBA만 본다.
+
+        §8. SDDiskImage (D5, D15, D18, D24, D25, D26, P5)
+        - `create`:
+          · 크기 = desiredSize를 sectorSize 배수로 올린 값. 섹터 수가 2·ES + 4 미만이면 `.diskTooSmall(minimum:)`.
+          · `.inMemory`는 `SDMemoryBlockDevice`, `.file(path)`는 `SDFileBlockDevice.create`로 만든다.
+          · 결과 `SDDisk`는 `ignoringExistingTable: true`와 같은 상태(`.none`)다. 새 디바이스는 전부 0이라 읽어도 같지만, 불필요한 I/O를 피한다.
+          · sectorSize가 512나 4096이 아니면 `.invalidArgument`.
+        - `open`:
+          · `.inMemory`면 `.invalidArgument`(P5).
+          · sectorSize가 nil이면 파일 바이트 오프셋 512에서 "EFI PART"를 찾고, 없으면 4096을 보고, 둘 다 없으면 512를 쓴다.
+          · 그 다음 `SDFileBlockDevice(path:mode:sectorSize:)`로 열고 `SDDisk(device:)`로 감싼다.
+
+        §9. sdinspect (D20, P6, P9)
+        - 사용법: `sdinspect [--sector-size 512|4096] [--hex] [--help] <image-path>`
+        - 항상 `SDFileBlockDevice(mode: .readOnly)`로 연다. 쓰기 경로를 부르는 코드가 이 타깃에 없어야 한다.
+        - 출력 (형식은 이 예시를 따르고 정렬 폭은 재량):
+              scheme      : GPT (healthy)            | GPT (degraded: primaryHeaderInvalid(headerCRC), ...) | NONE | MBR | GPT UNRECOVERABLE
+              sector size : 512   sectors: 131072 (64 MiB)
+              disk GUID   : ...
+              primary hdr : LBA 1      header crc OK|BAD(stored/computed)  entries LBA 2..33  crc OK|BAD
+              backup  hdr : LBA 131071 ...
+              usable      : LBA 34 .. 131038
+              pmbr        : protective | hybrid | mbr | missing
+               #  begin    end      size     type                  attrs  label
+               0  2048     34815    16 MiB   EFI System            -      EFI
+          MBR 스킴이면 MBR 엔트리 표를 찍는다. `--hex`면 LBA0, LBA1, 백업 헤더 섹터를 16바이트 단위 hexdump로 덧붙인다.
+          gptUnrecoverable일 때도 헤더 보고서 두 개와 `--hex` 덤프는 찍는다.
+        - 인자 파싱은 직접 구현한다. 모르는 옵션이나 경로 누락은 사용법을 stderr에 찍고 64로 종료한다.
+
+        §10. 테스트 (Swift Testing, D21, P8)
+        - 구분:
+          (a) 순수 유닛: 코덱, 골든 바이트(`code#fixture-bytes`), SDSize, 배치, 트랜잭션, 손상 시나리오. 모든 플랫폼에서 돈다.
+          (b) macOS 내장 도구: `hdiutil create`/`hdiutil imageinfo -plist`/`/usr/sbin/gpt -r show`. 도구가 없으면(Linux 포함) `.enabled(if:)`로 skip한다.
+          (c) attach: `SLOPDISK_TEST_HDIUTIL_ATTACH=1`일 때만 돈다. `.serialized`로 표시한다.
+        - 모든 파일 I/O 테스트는 테스트마다 고유한 임시 디렉터리를 쓴다(Swift Testing은 기본이 병렬이다).
+        - 필수 시나리오 (`code#api`의 ensure에 더해서):
+          T1. 골든: `code#fixture-bytes`의 헤더·엔트리 바이트를 파싱하면 기대값이 모두 나온다. 헤더와 엔트리의 CRC 재계산 값도 일치한다. 같은 모델을 다시 인코딩하면 바이트가 같다.
+          T2. SYNOPSIS: `code#synopsis`의 본문을 테스트 함수에 그대로 옮겨 실행한다.
+              그 뒤 partitions == [(0, 2048, 821247, "EFI", .efiSystem), (1, 821248, 17598463, "WIN11ISO", .microsoftBasicData)]이고, 인메모리 디바이스의 allocatedByteCount < 1 MiB다.
+          T3. gpt 교차검증: 64 MiB 파일 이미지를 만들고 clear, 16 MiB EFI, `.remaining` Basic Data를 추가해 commit한다.
+              `gpt -r show <image>`를 파싱한 "GPT part" 행이 정확히 다음과 같다: (2048, 32768, 1, C12A7328-F81F-11D2-BA4B-00A0C93EC93B), (34816, 96223, 2, EBD0A0A2-B9E5-4433-87C0-68B6B72699C7).
+              `-l`로 돌리면 레이블이 보인다. gpt의 index는 1부터 센다.
+          T4. imageinfo 교차검증: T3 이미지에 `hdiutil imageinfo -plist`를 돌려 partition-scheme이 GUID이고, 각 partition-UUID가 SlopDisk의 uniqueID와 같다(혼합 엔디언 검증).
+          T5. hdiutil fixture 읽기: `hdiutil create -size 8m -layout GPTSPUD -type UDIF <tmp>/fx`로 만든 이미지를 open한다. F5 값과 일치하고 .gpt(.healthy)다.
+          T6. 크래시 주입: 건강한 GPT 디스크에서 k번째 write 호출에서 throw하는 래퍼 디바이스로 commit한다. 모든 k에 대해 원본 디바이스를 다시 열면 `.gptUnrecoverable`이 아니고, 파티션 목록은 커밋 전 또는 커밋 후 둘 중 하나와 같다.
+              빈 디스크에서 시작한 경우에도 모든 k에 대해 `.gptUnrecoverable`이 아니다.
+          T7. 쓰기 순서: 호출을 기록하는 래퍼 디바이스로 commit하면 호출 순서가 D11과 같다(엔트리·헤더 쓰기는 LBA로 구분한다).
+          T8. 결정성: 같은 diskID·uniqueID로 두 인메모리 디스크에 같은 조작을 하면 모든 할당 청크의 바이트가 같다.
+          T9. 대용량: 8 TiB(512) 인메모리 디스크에서 보호 MBR 크기 필드는 0xFFFFFFFF다. 백업 헤더 LBA는 N-1이고 allocatedByteCount < 1 MiB다.
+          T10. 4Kn: 섹터 4096 이미지 → ES 4, FirstUsable 6, 정렬 256, 보호 MBR은 LBA0 앞 512바이트에만 있다. 파일로 쓴 뒤 sectorSize: nil로 open하면 4096으로 감지한다.
+          T11. 이미지 확장: 64 MiB 이미지에 commit한 뒤 파일을 128 MiB로 늘리고 open한다. `.degraded`에 `.backupNotAtEndOfDisk`가 있고, repair 후에는 .healthy이며 백업은 새 N-1에, LastUsable은 새 값이다.
+          T12. MBR 인식: 손으로 만든 MBR(0x0C 엔트리 1개) → `.mbr([...])`, partitions 비어 있음. clear + add + commit하면 .gpt(.healthy)이고 LBA0의 0..<446이 0이다(P3).
+          T13. sdinspect: `swift build` 산출물을 Process로 실행한다. T5 fixture에서 "GPT (healthy)"와 "disk image"가 나오고 exit 0이다.
+               주 헤더를 훼손하면 exit 1, 양쪽을 훼손하면 exit 2다. 실행 전후 파일의 SHA-256(또는 전체 바이트)이 같다.
+          T14. (c) attach: T3 이미지를 `hdiutil attach -nomount -imagekey diskimage-class=CRawDiskImage`로 붙이면 1행이 GUID_partition_scheme이고 sK 행이 2개다.
+               s2에 `newfs_msdos -F 32 -v WIN11ISO /dev/rdiskNs2`, `fsck_msdos -n /dev/rdiskNs2`가 exit 0이다. defer로 반드시 detach한다.
+    </specs>
+
+    <constraints>
+        조용히 깨지는 것 위주.
+
+        - 혼합 엔디언 GUID: Foundation `UUID.uuid` 튜플은 RFC 순서(빅 엔디언)다. 앞 세 필드의 바이트를 뒤집지 않아도 자기 인코드·디코드 왕복 테스트는 통과한다. 반드시 T1 골든과 T4 imageinfo로 검증한다.
+        - end LBA는 포함이다. size = end - begin + 1. off-by-one은 자기 왕복으로 드러나지 않는다. T3의 gpt size 열로 잡는다.
+        - 헤더 CRC는 CRC 필드를 0으로 둔 뒤 HeaderSize(읽은 값) 바이트에 대해서만 계산한다. 섹터 전체로 계산해도 자기 검증은 통과하지만 다른 도구에서는 깨진다.
+        - 엔트리 CRC 범위는 Number × Size(읽은 값) 전체다. 사용 중인 엔트리만이 아니다.
+        - 주·백업 헤더는 MyLBA, AlternateLBA, PartitionEntryLBA가 다르므로 CRC도 각각 계산한다. 한쪽 헤더를 복사해 쓰면 백업이 조용히 무효가 된다.
+        - 4Kn: 512로만 테스트하면 ES, FirstUsable, 정렬, 보호 MBR 위치 버그가 드러나지 않는다. T10은 필수다.
+        - 보호 MBR 크기 필드는 u32다. 2 TiB(512 기준)를 넘으면 0xFFFFFFFF로 클램프한다. 클램프하지 않으면 잘린 값이 조용히 기록된다. T9.
+        - 레이블 길이는 `label.count`(그래프림 수)가 아니라 `label.utf16.count`로 잰다. 영어로만 테스트하면 드러나지 않는다. 한글과 이모지 테스트가 필수다.
+        - 레이블 디코딩은 첫 0x0000에서 끊는다. 0 패딩이 문자열에 남으면 "EFI\0\0…" != "EFI"가 되어 비교가 조용히 실패한다.
+        - `Data`를 슬라이싱하면 원래 인덱스가 유지된다. 슬라이스의 0번 인덱스를 전제로 오프셋을 계산하면 조용히 틀린다. `[UInt8]`이나 `withUnsafeBytes`를 쓴다.
+        - 재읽기 검증(§7-4)은 캐시가 아니라 디바이스에서 새로 읽어야 한다. 캐시를 비교하면 항상 성공한다.
+        - flock은 open file description 단위다. 같은 프로세스에서 두 번 열어도 충돌해야 테스트가 의미가 있다. fcntl 레코드 잠금(F_SETLK)은 프로세스 단위라 같은 프로세스에서는 충돌하지 않는다. 쓰지 않는다.
+        - `throws(SDError)` 함수 안에서 Foundation API가 untyped로 throw하면 컴파일 에러가 난다. do/catch로 SDError에 매핑한다. POSIX 실패는 `.io(operation:errno:)`에 errno를 담는다.
+        - macOS 13 배포 대상에서 `~Copyable` 클로저 인자(D27)나 typed throws(D28)에 가용성 에러가 나면, 회피 설계로 바꾸지 말고 멈추고 보고한다. 사용자 결정을 다시 정해야 하는 사안이다.
+        - hdiutil attach 테스트는 테스트가 방금 만든 임시 디렉터리의 이미지만 붙인다. `/dev/diskN` 경로는 그 attach 출력에서만 얻는다. 다른 디스크 경로를 하드코딩하거나 추측하지 않는다.
+        - `hdiutil create`에 `-fs`를 붙이지 않는다(F4, 샌드박스에서 실패).
+        - `gpt -r show`는 빈 이미지에서도 exit 0이다(F6). 종료 코드가 아니라 출력으로 판정한다.
+        - 하이브리드 MBR 디스크에 commit/repair하면 하이브리드 엔트리가 사라진다(P3, 순수 보호 MBR로 덮어씀). 버그가 아니라 설계다. `.hybridMBR` 이슈로 사전에 보고한다. README에도 적는다.
+    </constraints>
+
+    <acceptance>
+        macOS에서 (저장소 루트):
+        - `swift build` → 성공. 새 경고 0개.
+        - `swift test` → 전부 통과. (b) 그룹이 skip되지 않고 실행되었음을 출력으로 확인한다.
+        - `SLOPDISK_TEST_HDIUTIL_ATTACH=1 swift test --filter HdiutilAttach` → T14 통과. (필터 이름은 실제 suite 이름에 맞춘다.)
+        - `swift run sdinspect --help` → 사용법 출력, exit 0.
+        - `hdiutil create -size 8m -layout GPTSPUD -type UDIF /tmp/sd-accept && swift run sdinspect /tmp/sd-accept.dmg` → "GPT (healthy)", 파티션 1행(40, 16343, "disk image"), exit 0. 확인 후 이미지는 지운다.
+        - `swift run sdinspect /tmp/does-not-exist` → exit 74.
+        - `code#api`의 모든 ensure와 §10의 T1~T14가 테스트로 존재하고 통과한다.
+
+        Linux에서 (가능하면):
+        - `docker run --rm -v "$PWD":/w -w /w swift:latest swift build && swift test` → 빌드 성공, (a) 통과, (b)(c) skip.
+          docker를 쓸 수 없으면 실행하지 말고 보고서의 "확인하지 못한 것"에 적는다.
+    </acceptance>
+
+    <closing>
+        - 보고서: `Prompts/10-implementation.report.md`에 한국어로 쓴다. 다음 순서로 둔다.
+          1. 확인한 것 — 실제로 실행한 명령과 그 결과 요약. 실행하지 않은 명령은 적지 않는다.
+          2. 확인하지 못한 것 — 이유와 함께.
+          3. ensure/T 목록별 통과 여부 표.
+          4. `<decisions source="planner">`와 다르게 구현한 것이 있으면 무엇을 왜 바꿨는지 적는다.
+          5. 20(실디바이스)에 영향을 주는 발견 — `SDBlockDevice` 계약에 대한 메모 등.
+          지어내지 않는다. 통과시킨 명령만 적는다.
+        - README.md: SYNOPSIS가 T2와 글자 단위로 같은지 확인한다. 구현하면서 공개 API 이름이 바뀌었다면 README와 CLAUDE.md를 함께 고친다. 단, D 결정 자체를 바꾸는 일이라면 고치지 말고 보고한다.
+        - CLAUDE.md: "Layout" 섹션을 실제 디렉터리 구조로 갱신한다.
+        - git: 저장소가 아니다(F3, D30). git init도 커밋도 하지 않는다.
+        - `Prompts/20-raw-device.xml`은 수정하지 않는다.
+    </closing>
+</agent-task>

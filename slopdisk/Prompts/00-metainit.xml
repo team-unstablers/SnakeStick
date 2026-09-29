@@ -1,0 +1,54 @@
+<agent-task draft>
+    <objective>
+        # '메타 레벨의 init'을 수행한다
+
+        - 1. AskUserQuestion으로 사용자에게 질문/심문해가며 API 디자인을 확정한다
+        - 2. 확정된 API 디자인을 기반으로 10-implementation.xml 을 작성한다.
+        - 3. README.md / CLAUDE.md를 작성한다
+    </objective>
+    <code lang="markdown" name="README.md (draft)">
+        <!-- 영문으로 작성하십시오 -->
+        # NAME
+
+        SlopDisk - LLM 코딩 에이전트에 의해 작성된 경량 GPT 파티션 테이블 관리 Swift 모듈
+
+        # WARNING: NOT FOR PRODUCTION USE
+
+        - 실제 디스크랑 연결하지 마십시오. 당신은 좆될 수 있습니다. (진지)
+
+        # SYNOPSIS
+
+        <!-- 실제 md 작성 시에는 Swift 코드블럭으로 작성한다: 이건 vim 신택스 하이라이팅을 받기 위함임 -->
+        <code lang="text/x-pseudocode; variant=swift">
+        import Foundation
+        import SlopDisk
+
+        let disk = try SDDiskImage.create(.inMemory, desiredSize: .megabytes(4))
+        // let disk = try SDDiskImage.open(.file("/tmp/disk-image.img"))
+        // try disk.refresh()
+
+        if disk.partitions.isEmpty {
+            print("== NO PARTITIONS ==")
+        } else {
+            for partition in disk.partitions {
+                print("Partition #%d: \(partition.begin) ~ \(partition.end) (\(partition.size))")
+            }
+        }
+
+        try disk.withTransaction { txn in
+            txn.clear()
+
+            txn.addPartition(.megabytes(400), type: .efi, label: "EFI")
+            txn.addPartition(.gigabytes(8192), type: .fat32, label: "WIN11ISO")
+            // writes partition table and sync()
+            try txn.commit()
+        }
+
+
+        <code>
+
+        # LICENSE
+
+        Artistic License 2.0
+    </code>
+</agent-task>

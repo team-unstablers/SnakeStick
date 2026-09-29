@@ -1,0 +1,173 @@
+<agent-task draft>
+    <status>
+        - 2026-09-30 대화에서 README.md를 검토한 뒤 작성했다.
+        - `<decisions>`는 사용자와 확정한 것이다. 다시 묻지 말 것.
+        - `<findings>`는 명령으로 확인한 사실이다. 다시 조사하지 말 것. 확인하지 못한 것은 `<unverified>`에 따로 두었다.
+        - README.md는 이 결정을 반영해 영문으로 이미 갱신되어 있다.
+        - 이 지시서를 쓰는 동안 slopdisk 쪽에 `Prompts/10-implementation.xml`, `Prompts/20-raw-device.xml`, `README.md`, `CLAUDE.md`가 추가되었다. 이 중 20-raw-device는 결정 3과 충돌하며, 사용자는 결정 3을 유지하기로 했다.
+    </status>
+
+    <objective>
+        # SnakeStick의 '메타 레벨의 init'을 수행한다
+
+        - 0. `slopdisk/Prompts/10-implementation.xml`과 `20-raw-device.xml`을 읽고, `<slopdisk-requirements>`의 R1~R6 중 이미 다뤄진 것, 이름이 다른 것, 어긋나는 것을 정리한다 (U6). 어긋나는 것은 인터뷰 항목에 더한다.
+        - 1. `<open-questions>`의 항목을 AskUserQuestion으로 사용자에게 질문/심문해가며 설계를 확정한다. `<decisions>`는 전제로 삼고 다시 묻지 않는다.
+        - 2. 확정된 설계를 기반으로 `Prompts/10-implementation.xml`을 작성한다. 형식은 agentxml 스킬을 따르고 `mode="execute"`로 쓴다. `<constraints>`의 항목은 빠짐없이 옮긴다.
+        - 3. README.md를 확정된 설계에 맞게 갱신하고(영문, 결정 11), CLAUDE.md를 작성한다.
+
+        ## 제외
+        - `slopdisk/`는 수정하지 않는다 (결정 10). SnakeStick이 SlopDisk에 요구하는 것은 `<slopdisk-requirements>`에 있다.
+        - slopdisk의 `SDRawDevice`(20-raw-device.xml)는 SnakeStick에서 쓰지 않는다 (결정 3).
+        - 구현 코드는 쓰지 않는다. 이 단계의 산출물은 문서뿐이다.
+    </objective>
+
+    <reference>
+        - `README.md` — 현재 설계 초안. SYNOPSIS와 HOW IT WORKS가 인터뷰의 출발점이다.
+        - `slopdisk/Prompts/00-metainit.xml` — SlopDisk API 초안. 읽기만 한다.
+        - `slopdisk/Prompts/10-implementation.xml` — SlopDisk 구현 지시서 (SDBlockDevice, 파일·메모리 백엔드, GPT 엔진, sdinspect). 읽기만 한다.
+        - `slopdisk/Prompts/20-raw-device.xml` — SlopDisk 실디바이스 백엔드 지시서. SnakeStick은 이 백엔드를 쓰지 않는다 (결정 3). 읽기만 한다.
+        - `slopdisk/README.md`, `slopdisk/CLAUDE.md` — SlopDisk 문서.
+        - `slopdisk/Sources/slopdisk/` — SlopDisk 골격 (F8).
+        - `SnakeStick/SnakeStick.xcodeproj/project.pbxproj` — 앱 빌드 설정 (F6, F7).
+    </reference>
+
+    <decisions>
+        다시 묻지 말 것.
+
+        - 결정 1. 부팅 대상은 UEFI 전용이다. 레거시 BIOS는 지원하지 않는다.
+            - 이유: Windows 11은 UEFI가 필수다. BIOS 부팅을 지원하려면 MBR 부트코드와 FAT32 부트 섹터 부트코드를 따로 넣어야 한다.
+            - 대가: BIOS 전용 구형 머신에는 Windows 10도 설치할 수 없다.
+        - 결정 2. GPT에 Microsoft Basic Data 파티션(`EBD0A0A2-B9E5-4433-87C0-68B6B72699C7`) 하나를 두고 FAT32로 포맷한다. ESP를 따로 두지 않는다.
+            - 이유: UEFI 펌웨어는 이동식 미디어의 FAT 파티션에서 `\EFI\BOOT\BOOTX64.EFI`를 찾으므로 ESP가 필요 없다. 파티션을 나누면 bootmgr와 `sources/boot.wim`이 서로 다른 파티션에 놓인다. ESP 타입 파티션에는 Windows가 드라이브 문자를 붙이지 않을 수 있다 (U1).
+            - 대가: GPT는 크기가 다른 디스크에 옮겨 쓰면 백업 GPT 위치가 어긋난다. 결정 5와 6으로 처리한다.
+            - 배제: MBR (사용자가 GPT 유지를 선택했다). ESP와 데이터 파티션 2개 구성 (slopdisk 초안의 구성).
+        - 결정 3. 이미지를 먼저 만들고, 대상 디스크에는 블록 복사만 한다.
+            - SlopDisk는 이미지 파일과 메모리 버퍼에만 쓴다. 대상 디바이스를 여는 것은 "(오프셋, 바이트) 목록"을 쓰는 라이터뿐이고, 라이터는 파티션 테이블을 모른다.
+            - 이유: SlopDisk는 LLM이 작성한 모듈이며 실제 디스크 연결이 금지되어 있다 (`slopdisk/Prompts/00-metainit.xml`의 WARNING). `make`와 `build`가 같은 경로를 공유하고, 권한 상승이 마지막 복사에만 필요해진다.
+            - slopdisk에 실디바이스 백엔드 `SDRawDevice` 계획(`slopdisk/Prompts/20-raw-device.xml`)이 생겼지만, SnakeStick은 이것을 쓰지 않는다. 2026-09-30 사용자가 이 결정을 유지하기로 확정했다. 20-raw-device.xml의 "SnakeStick은 결국 /dev/rdiskN에 파티션 테이블을 써야 한다"는 서술은 SnakeStick의 설계가 아니다.
+        - 결정 4. FAT32 볼륨은 `hdiutil` + `newfs_msdos`로 만들고, macOS 마운트를 거쳐 파일을 복사한다. 자체 FAT32 writer는 만들지 않는다.
+            - 대가: 이미지가 비트 단위로 재현되지 않아 해시 기반 회귀 테스트를 쓸 수 없다. 마운트 부산물을 정리해야 한다.
+            - 이 타협은 README의 KNOWN LIMITATIONS에 적혀 있다. 문서와 주석에서 원래 설계처럼 서술하지 않는다.
+        - 결정 5. `make`는 대상 디스크와 크기·논리 블록 크기가 같은 sparse 이미지를 만든다. GPT를 처음부터 대상 크기로 기록하고, 파티션은 내용물 크기에 맞추며 나머지는 비운다. 대상에는 code#layout 의 쓰기 범위만 쓴다.
+        - 결정 6. `write`는 기존 이미지를 쓸 때, 대상 크기에 맞춘 protective MBR·primary GPT 헤더와 백업 GPT(엔트리 배열 + 헤더)를 메모리에서 만들어 함께 쓴다 (code#retarget).
+            - 배제: `sgdisk -e`로 사후 보정 (외부 도구 의존). 보정 없이 감수 (규격 위반).
+            - 대가: 순수 `dd`로 쓴 경우는 보정되지 않는다. README에 적혀 있다.
+        - 결정 7. CLI는 서브커맨드로 나눈다: `make`, `build`, `write`. 형태는 README SYNOPSIS를 기준으로 한다. 옵션 이름 같은 세부는 인터뷰에서 바꿀 수 있다.
+        - 결정 8. `--imgsize`는 `build` 전용이다. 기본값은 ISO 내용물에 여유분을 더해 자동 산출한다. 단위는 SI다 (`1G` = 1,000,000,000 바이트).
+            - 이유: 8 GiB(8,589,934,592 바이트)는 시판 "8GB" 스틱에 들어가지 않는다.
+        - 결정 9. `sources/install.wim` 또는 `sources/install.esd`가 FAT32 한계 이상이면 libwim의 `wimlib_split()`으로 `install.swm`, `install2.swm`, ...을 만든다. `wimlib-imagex`를 실행하지 않고 libwim을 정적 링크한다.
+        - 결정 10. 이번 단계에서 `slopdisk/`는 수정하지 않는다. SnakeStick의 요구는 `<slopdisk-requirements>`에 정리한다.
+        - 결정 11. README.md는 영문으로 쓴다.
+    </decisions>
+
+    <findings>
+        - F1. wimlib 라이선스: 전체는 GPLv3+이고, libwim은 ntfs-3g를 링크하지 않았다면 LGPLv2.1+도 고를 수 있다. SnakeStick은 GPLv3이므로 어느 쪽이든 문제없다. (`$(brew --prefix wimlib)/COPYING`)
+        - F2. Homebrew wimlib 1.14.5에 `lib/libwim.a`가 있고, `libwim.dylib`은 libSystem에만 의존한다. (`ls $(brew --prefix wimlib)/lib`, `otool -L`)
+        - F3. `wimlib_split()`이 있고, 1.13.4부터 split 중에도 `WIMLIB_PROGRESS_MSG_WRITE_STREAMS` 진행 콜백이 온다. (`$(brew --prefix wimlib)/include/wimlib.h`)
+        - F4. raw 이미지는 `hdiutil attach -imagekey diskimage-class=CRawDiskImage`로 강제 인식시킬 수 있다. (`man hdiutil`)
+        - F5. `/usr/libexec/authopen`이 있다. (`ls`)
+        - F6. `SnakeStick/SnakeStick.xcodeproj/project.pbxproj` 빌드 설정: `ENABLE_APP_SANDBOX = YES`, `ENABLE_HARDENED_RUNTIME = YES`, `MACOSX_DEPLOYMENT_TARGET = 26.6`, `SWIFT_VERSION = 5.0`, `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`. (grep. 2026-09-30 기준 375, 376, 300, 394, 391번째 줄. 어긋나면 키 이름으로 찾을 것.)
+        - F7. `SnakeStick.xcworkspace`는 `slopdisk` 폴더를 참조하지만, 앱 타깃은 slopdisk에 링크되어 있지 않다. (`project.pbxproj`에 `slopdisk` 문자열이 없다.)
+        - F8. SlopDisk 소스는 `SDDisk`, `SDDiskImage` 프로토콜 골격만 있고 구현이 없다. `SDDiskImage.create`는 반환 타입이 있는데 본문이 비어 있어 현재 빌드되지 않을 것으로 보인다 (빌드는 돌려보지 않았다). swift-tools-version 6.4, 라이선스는 Artistic License 2.0 (GPL 호환). 구현 지시서 10·20은 작성되어 있으나, 20의 `<prerequisite>`는 10을 `state="pending"`으로 적고 있다. (2026-09-30 07:0x 기준 `git status`, `head Prompts/20-raw-device.xml`)
+        - F9. SnakeStick 앱은 Xcode 템플릿 상태다 (`ContentView`가 "Hello, world!").
+        - F10. 작업 디렉토리와 `slopdisk/`는 git 저장소가 아니다. (`git status`)
+    </findings>
+
+    <unverified>
+        확인하지 못한 것. 전제로 삼지 말고, 필요하면 실기로 확인한다.
+
+        - U1. Windows가 ESP 타입 파티션에 드라이브 문자를 붙이지 않아 Windows Setup이 설치 파일을 못 찾는지 여부. (결정 2의 이유 중 하나. 결정 자체는 다른 이유로도 성립한다.)
+        - U2. GPT의 Basic Data 타입 FAT32 파티션(이동식 미디어)에서 대부분의 UEFI 펌웨어가 부팅하는지. Rufus의 GPT 모드와 같은 구성으로 알려져 있다.
+        - U3. `hdiutil`로 attach한 이미지 디바이스에 root가 아닌 사용자가 `newfs_msdos`로 쓸 수 있는지. (README의 "권한은 마지막 단계만"이 이것에 의존한다.)
+        - U4. solid 압축된 `install.esd`를 `wimlib_split()`으로 분할할 수 있는지. MCT로 만든 ISO의 `install.esd`는 보통 4 GiB 미만인 것으로 알려져 있다.
+        - U5. `authopen -stdoutpipe`로 받은 fd로 `/dev/rdiskN`에 쓸 수 있는지.
+        - U6. `<slopdisk-requirements>`를 `slopdisk/Prompts/10-implementation.xml`·`20-raw-device.xml`과 대조하지 않았다. 10은 63 KB라 앞부분만 확인했다.
+    </unverified>
+
+    <code id="layout" lang="text/plain">
+        make: 대상 디스크 = N 블록 (블록 크기는 대상에서 읽는다. 아래 LBA는 512 바이트 블록 기준)
+
+        LBA 0              protective MBR (0xEE 엔트리 크기는 디스크 크기에 맞춘다)
+        LBA 1              primary GPT header
+        LBA 2 ~ 33         partition entry array
+        1 MiB 정렬 ~        partition 1: Microsoft Basic Data, FAT32 (내용물 + 여유분)
+        파티션 끝 ~          파티션 없음 (sparse hole)
+        LBA N-33 ~ N-2     backup partition entry array
+        LBA N-1            backup GPT header
+
+        대상에 쓰는 범위: [0, 파티션 끝) + [LBA N-33, 디스크 끝)
+    </code>
+
+    <slopdisk-requirements>
+        SnakeStick이 SlopDisk에 요구하는 것. SlopDisk 쪽 반영은 별도 작업이다 (결정 10).
+
+        - R1. 지정한 디스크 크기와 논리 블록 크기(512 또는 4096)로 파일 이미지에 GPT를 만든다. 파일은 sparse로 만든다 (0으로 채우지 않는다).
+        - R2. 파티션 타입으로 Microsoft Basic Data를 지정할 수 있다. 초안의 `.fat32`는 파티션 타입이 아니라 파일시스템이다.
+        - R3. 초안 SYNOPSIS의 `.gigabytes(8192)`는 8 TB다. 오타로 보인다.
+        - R4. 파티션 시작·끝의 바이트 오프셋을 조회할 수 있다. 쓰기 범위 계산에 쓴다.
+        - R5. 파티션 시작을 1 MiB에 정렬한다.
+        - R6. code#retarget 의 계약.
+    </slopdisk-requirements>
+
+    <code id="retarget" lang="text/x-pseudocode; variant=swift+imagine">
+        // SnakeStick이 SlopDisk에 요구하는 계약. 이름과 시그니처 세부는 SlopDisk 설계에 맞춰 바꿔도 된다.
+        struct SDPatch { let offset: UInt64; let bytes: Data }
+
+        imagine func retargeted(_ image: SDDiskImage, diskSize: UInt64, blockSize: Int) throws -> [SDPatch] {
+            requirements(`
+                image의 GPT를 diskSize 크기 디스크에 맞게 다시 계산해 바이트 패치로 돌려준다.
+                패치는 둘이다. 앞쪽은 LBA 0~1 (protective MBR + primary GPT 헤더), 뒤쪽은 디스크 끝의 백업 엔트리 배열 + 백업 헤더.
+                protective MBR의 0xEE 엔트리 크기, primary 헤더의 AlternateLBA·LastUsableLBA와 헤더 CRC가 바뀐다.
+                파티션 엔트리 내용은 바뀌지 않는다.
+                어떤 파일이나 디바이스에도 쓰지 않는다 (결정 3).
+            `);
+            ensure(patches.count == 2);
+            ensure(patches[0].offset == 0 && patches[0].bytes.count == 2 * blockSize);
+            ensure(patches[1].offset + UInt64(patches[1].bytes.count) == diskSize);
+            ensure(SDDiskImage.open(.file(applyToSparseFile(image, patches, size: diskSize))).gptHealth == .primaryAndBackupValid);
+            ensure(throws: retargeted(image, diskSize: image.partitions.last!.end, blockSize: blockSize), "백업 GPT가 들어갈 자리가 없으면 거부한다");
+        }
+    </code>
+
+    <open-questions>
+        인터뷰할 항목. 순서는 의존 관계 순이다.
+
+        - Q1. 앱 샌드박스와 권한 모델. 현재 `ENABLE_APP_SANDBOX = YES`이다 (F6). 샌드박스 안에서는 `hdiutil`·`newfs_msdos` 실행과 `/dev/rdisk` 접근이 막힌다. 후보: 샌드박스를 끄고 Developer ID로 공증 배포 / 샌드박스 GUI + 샌드박스 밖 헬퍼(SMAppService + XPC). 권한 상승 수단 후보: `authopen`으로 fd만 받기 (U5), SMAppService 데몬, CLI는 sudo.
+        - Q2. CLI 진입점. 앱 번들 실행 파일을 CLI로도 쓸지(현재 SYNOPSIS), CLI 바이너리를 따로 둘지. Q1과 연동된다.
+        - Q3. ISO 읽기. `hdiutil attach -readonly -nobrowse`로 UDF 마운트 / 자체 UDF 리더.
+        - Q4. libwim 빌드 연동. Homebrew의 `libwim.a`(F2, arm64 전용) / 소스 vendoring 빌드(universal 바이너리, 빌드 재현성).
+        - Q5. 모듈 구성. 코어 로직을 Swift Package로 분리해 GUI와 CLI가 공유할지. SlopDisk를 어떻게 의존할지 (F7). SlopDisk 구현을 먼저 할지, SnakeStick과 병행할지.
+        - Q6. 대상 디스크 안전장치. 내장·부트 디스크를 거부하는 기준 (DiskArbitration의 디스크 속성), 확인 절차 (모델명·크기 표시), 비대화형 실행용 옵션 여부.
+        - Q7. 쓰기 중 자동 마운트 차단 방법. `DADiskClaim` / `DARegisterDiskMountApprovalCallback` / 첫 1 MiB를 마지막에 쓰기.
+        - Q8. 쓰기 후 검증 방식. 전체 read-back 비교 / 해시 비교. 끌 수 있게 할지.
+        - Q9. `build`의 기본 크기 계산. 여유분 비율과 정렬 단위.
+        - Q10. 임시 이미지 위치와 여유 공간 검사. 실패·취소 시 detach와 임시 파일 정리.
+        - Q11. GUI 범위. 화면 구성, 진행률 (F3의 콜백), 취소.
+        - Q12. 앱 타깃의 Swift 언어 모드. 현재 5.0 (F6), SlopDisk는 tools 6.4.
+        - Q13. 범위 밖으로 둘 부가 기능. Windows 11 요구사항 우회, 무인 설치 응답 파일 등.
+    </open-questions>
+
+    <constraints>
+        조용히 깨지는 것. 10-implementation.xml로 빠짐없이 옮긴다.
+
+        - C1. 블록 크기를 512로 하드코딩하지 않는다. 대상에서 `DKIOCGETBLOCKSIZE`와 `DKIOCGETBLOCKCOUNT`로 읽는다. 모든 LBA 계산이 이 값에 의존한다.
+        - C2. protective MBR의 0xEE 엔트리 크기도 디스크 크기에 따라 바뀐다. `write` 보정에서 LBA 0도 패치 대상이다.
+        - C3. 쓰기 범위에서 디스크 끝 영역을 빠뜨리면, 전에 쓰던 스틱의 옛 백업 GPT가 남는다.
+        - C4. FAT32의 파일 크기 한계는 4,294,967,295 바이트(4 GiB - 1)다. split 크기는 이보다 작게 잡는다.
+        - C5. raw 이미지는 `-imagekey diskimage-class=CRawDiskImage` 없이 attach하면 인식에 실패할 수 있다 (F4).
+        - C6. 복사할 때 xattr와 quarantine이 `._*` 파일로 FAT32에 남는다. xattr 없이 복사하고 (예: `ditto --norsrc --noextattr --noqtn --noacl`), 언마운트 전에 `.fseventsd`, `.Spotlight-V100`, `._*`, `.DS_Store`를 정리한다. 완성 이미지를 read-only로 attach해 루트에 이런 파일이 없는지 검사하는 테스트를 둔다.
+        - C7. 파티션 테이블이 대상에 먼저 기록되면 macOS가 쓰는 도중 파티션을 자동 마운트해 파일을 만들 수 있다 (Q7).
+        - C8. 대상은 `/dev/diskN`이 아니라 `/dev/rdiskN`에 쓴다. 쓰기 전에 `diskutil unmountDisk`를 한다. 버퍼드 디바이스로 써도 에러는 없고 느리기만 하다.
+        - C9. SlopDisk를 거치는 코드 경로에서 대상 디바이스를 열지 않는다. `SDRawDevice`를 사용하지 않는다 (결정 3). SlopDisk에 백엔드가 있으니 쓰기 쉬워 보이는 것이 함정이다.
+        - C10. `write`에서 대상이 "파티션 끝 + 백업 GPT 크기"보다 작으면 쓰기 전에 거부한다.
+        - C11. `--imgsize`의 `G`는 10^9이다. `8G`가 8,589,934,592가 되면 결정 8 위반이다.
+        - C12. MCT로 만든 ISO에는 `install.wim` 대신 `install.esd`가 있다. 파일 이름이 아니라 크기로 분할 여부를 정한다 (U4).
+        - C13. 지금 샌드박스 설정(F6)으로는 `hdiutil` 실행과 `/dev/rdisk` 접근이 실행할 때에야 실패한다. 빌드는 통과한다 (Q1).
+    </constraints>
+
+    <closing>
+        - 산출물: `Prompts/10-implementation.xml`, `README.md`(영문), `CLAUDE.md`.
+        - 작업 디렉토리는 git 저장소가 아니다 (F10). 10-implementation.xml에 커밋 분할 지침을 쓰기 전에 `git init` 여부를 사용자에게 묻는다.
+        - 끝나면 대화로 보고한다. 확정된 결정, 남은 미결 사항, `<unverified>` 중 확인한 것과 확인하지 못한 것을 나눠 적는다. 실제로 실행한 명령만 확인한 것으로 적고, 지어내지 않는다.
+    </closing>
+</agent-task>

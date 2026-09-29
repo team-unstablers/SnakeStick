@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+DerivedData/
+build/
+
+# Swift Package Manager
+.build/
+
+# Windows ISOs, disk images and split WIM parts (test inputs and build outputs)
+*.iso
+*.img
+*.swm
