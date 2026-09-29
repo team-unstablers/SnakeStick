@@ -9,12 +9,12 @@ SlopDisk - a lightweight GPT partition table management module for Swift, writte
 
 # STATUS
 
-The API below is **designed but not yet implemented**. Implementation is tracked by the task documents in `Prompts/`:
+Stage 10 is implemented; stage 20 is not. Implementation is tracked by the task documents in `Prompts/`:
 
-| Stage | Document | Scope |
-|---|---|---|
-| 10 | `Prompts/10-implementation.xml` | GPT core, in-memory / file backends, MBR detection, `sdinspect` |
-| 20 | `Prompts/20-raw-device.xml` | Raw device backend (`SDRawDevice`) |
+| Stage | Document | Scope | State |
+|---|---|---|---|
+| 10 | `Prompts/10-implementation.xml` | GPT core, in-memory / file backends, MBR detection, `sdinspect` | implemented (`Prompts/10-implementation.report.md`) |
+| 20 | `Prompts/20-raw-device.xml` | Raw device backend (`SDRawDevice`) | not started |
 
 # SYNOPSIS
 
@@ -61,7 +61,10 @@ SDDiskImage (factory) ──creates──▶ SDDisk (GPT logic) ──reads/writ
 | Type | Role |
 |---|---|
 | `SDBlockDevice` | Public protocol: `sectorSize`, `sectorCount`, `isReadOnly`, sector-aligned `read` / `write`, `synchronize`. Implement it to plug in your own backend. |
+| `SDMemoryBlockDevice` | Sparse in-memory backend (64 KiB chunks, allocated on first write). `allocatedByteCount`, `bytes(atByteOffset:count:)`, `export(toFile:)`. |
+| `SDFileBlockDevice` | Image-file backend. `create(path:byteCount:sectorSize:)` makes a sparse file; `init(path:mode:sectorSize:)` opens one. Regular files only. |
 | `SDDisk` | GPT engine. `scheme`, `partitions`, `diskID`, `refresh()`, `repair()`, `withTransaction(_:)`. |
+| `SDInspection` | One read-only pass over a device: protective MBR, both headers with their CRCs, the verdict, and the adopted table. Throws only on I/O errors, so it also describes unrecoverable disks. `SDDisk` and `sdinspect` are built on it. |
 | `SDDiskImage` | Factory: `create(_:desiredSize:sectorSize:)`, `open(_:mode:sectorSize:)`. |
 | `SDTransaction` | Staged edits. `~Copyable`, passed `inout`, so it cannot escape the closure. |
 | `SDPartition` | `index` (entry slot), `type`, `uniqueID`, `begin` / `end` (LBA, **end inclusive**), `size`, `attributes`, `label`. |
@@ -72,13 +75,15 @@ SDDiskImage (factory) ──creates──▶ SDDisk (GPT logic) ──reads/writ
 ## Behavior
 
 - **Sector sizes.** 512 and 4096 are supported. `open` detects the sector size by looking for the `EFI PART` signature.
-- **Placement.** Partition starts are aligned to 1 MiB. Sizes are rounded up to whole sectors. New partitions go into the first free region that fits (first-fit), and `.remaining` fills that region to its end.
-- **Transactions.** Every edit is validated immediately and throws on the spot. `addPartition` returns the placed partition, so you can inspect `begin` / `end` right away. Nothing touches the disk until `commit()`. If the closure returns or throws without committing, all changes are discarded.
-- **Commit.** Writes happen in this order: backup entries → backup header → sync → primary entries → primary header → protective MBR → sync. The table is then **read back from the device** and compared. If the process dies mid-commit, the disk still opens and shows either the old table or the new one.
+- **Placement.** Partition starts are aligned to 1 MiB. Sizes are rounded up to whole sectors. New partitions go into the first free region that fits (first-fit), and `.remaining` fills that region to its end. With an explicit `at:` start LBA no alignment is applied.
+- **Slots.** A new partition takes the lowest free entry slot. Removing a partition leaves its slot empty, so the other partitions keep their numbers (`/dev/sdX1`, ...).
+- **Transactions.** Every edit is validated immediately and throws on the spot. `addPartition` returns the placed partition, so you can inspect `begin` / `end` right away. Nothing touches the disk until `commit()`. If the closure returns or throws without committing, all changes are discarded. After a successful `commit()`, every further operation throws `.transactionFinished`, except `clear()`, which cannot throw and traps instead. If `commit()` itself throws, the transaction stays open and the disk's cached state is unchanged; call `refresh()` to see what reached the device.
+- **Commit.** Writes happen in this order: backup entries → backup header → sync → primary entries → primary header → protective MBR → sync. The table is then **read back from the device** and compared. If the process dies mid-commit, the disk still opens and shows either the old table or the new one. Tables are always written with 128 entries of 128 bytes; other layouts are accepted when reading.
 - **Damage.** If one GPT copy is corrupt, SlopDisk reads the other and reports it via `scheme == .gpt(.degraded(...))`. **Reading never writes.** Call `repair()` or commit a transaction to fix the disk. If both copies are gone, opening throws `.gptUnrecoverable`. Use `SDDisk(device:, ignoringExistingTable: true)` to start over.
 - **Non-GPT disks.** `scheme` is `.none` (no table) or `.mbr([...])` (MBR is detected and reported, never edited). A transaction that starts with `clear()` turns either one into a fresh GPT.
 - **Reproducibility.** Pass `diskID:` / `uniqueID:` to get byte-identical images.
-- **Locking.** Image files are `flock`ed: exclusive for read-write, shared for read-only.
+- **Image files.** `SDFileBlockDevice` (and therefore `SDDiskImage.open(.file(...))`) only opens regular files. A device node such as `/dev/disk4` is rejected with `.invalidArgument`.
+- **Locking.** Image files are `flock`ed: exclusive for read-write, shared for read-only. The lock is per open file description, so a second read-write open in the same process fails with `.locked` too.
 - **Concurrency.** The API is synchronous and `SDDisk` is not `Sendable`. Wrap it in an actor if you need to use it from more than one isolation domain.
 
 # NON-GOALS
@@ -95,7 +100,7 @@ SDDiskImage (factory) ──creates──▶ SDDisk (GPT logic) ──reads/writ
   ```
 
 - **MBR editing.** MBR tables are recognized, not edited.
-- **Hybrid MBRs.** Committing to a disk with a hybrid MBR replaces it with a pure protective MBR. SlopDisk reports `.hybridMBR` beforehand so this never happens silently.
+- **Hybrid MBRs.** Committing to a disk with a hybrid MBR replaces it with a pure protective MBR. SlopDisk reports `.hybridMBR` beforehand so this never happens silently. The same issue is reported when a valid GPT sits behind a classic MBR without a 0xEE record (together with `.protectiveMBRMissing`), because those MBR records are overwritten as well. Boot code in LBA 0 is always cleared.
 - **Disk selection / unmounting / privilege escalation** for raw devices. That is the caller's job.
 
 # TOOLS
