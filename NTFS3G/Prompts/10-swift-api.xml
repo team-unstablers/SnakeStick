@@ -1,0 +1,382 @@
+<agent-task mode="execute">
+    <status>
+        - 이 지시서는 SnakeStick 세션에서 사용자와 AskUserQuestion 6회(질문 20개)를 주고받으며 확정한 설계를 기반으로 한다.
+        - `<decisions source="user">`는 사용자가 직접 고른 것이다. 다시 묻지 않는다.
+        - `<decisions source="planner">`는 사용자 결정에서 파생해 플래너가 정한 것이다. 구현 중 명백히 잘못된 것으로 드러나면 멈추고 보고한다. 조용히 바꾸지 않는다.
+        - `<findings>`는 플래너가 이 머신(macOS 26, Apple Swift 6.4, MacOSX27.0 SDK)에서 직접 실행하거나 서브모듈 소스를 읽어 확인한 사실이다. 다시 조사하지 않는다.
+        - 작업 규모: Swift 소스 6~8개, C 헬퍼 1~2개, 테스트 파일 3~5개, README와 라이선스 파일. 스캐폴드(서브모듈, C 타깃, 스모크 테스트)는 이미 있다(`<prerequisite>`).
+    </status>
+
+    <objective>
+        # NTFS3G v1: libntfs-3g 위의 Swift API
+
+        ## 배경
+        - SnakeStick은 macOS에서 Windows 설치 USB를 만든다. FAT32의 4 GiB 파일 한계 때문에 `install.wim`을 분할하던 방식을 버리고, NTFS 데이터 파티션과 UEFI:NTFS용 작은 FAT 파티션 구성으로 바꾸기로 했다(D1).
+        - NTFS 볼륨은 이 패키지가 유저랜드에서 만든다. libntfs-3g(C)를 서브모듈로 두고 그 위에 얇은 Swift API를 얹는다(D2).
+        - 스캐폴드는 끝났다. C 타깃 `CNTFS3G`가 빌드되고, mkntfs 포맷 → 파일 쓰기 → 읽기 전용 재마운트 후 비교하는 스모크 테스트가 통과한다(F1).
+
+        ## 범위
+        - Swift 타깃 `NTFS3G`와 공개 API: 포맷, 마운트와 닫기, 디렉터리 생성, 파일 쓰기, 트리 복사, 읽기(목록·속성·내용), 볼륨 크기 추정 (code#api, §3~§9).
+        - C 쪽 보강: mkntfs 진입점의 로케일·로그 핸들러 복원, Swift로 임포트되지 않는 매크로용 헬퍼 (§2, §4).
+        - 테스트: 기본 실행 테스트와 opt-in 통합 테스트(macOS FSKit NTFS 드라이버 교차 검증, 4 GiB 초과 파일) (§10).
+        - README, 라이선스 파일, SPDX 헤더 (§11).
+
+        ## 제외
+        - SnakeStick 앱 통합(GPT 구성, UEFI:NTFS 파티션, 파티션 이미지를 디스크 이미지에 붙이는 것). 별도 지시서가 맡는다.
+        - 삭제·이름 변경·truncate·속성 변경 API. D6.
+        - 파티션 오프셋 I/O, 사용자 정의 디바이스 백엔드. D5.
+        - Linux 지원. D10.
+        - 서브모듈 수정과 포크. D3. 필요해 보이면 멈추고 보고한다.
+        - `slopdisk/` 전체. 다른 세션이 구현 중이다. 읽기 외에는 손대지 않는다(C1).
+        - SnakeStick의 `README.md`, `Prompts/00-metainit.xml`, `SnakeStick.xcworkspace` 수정. 이 작업 밖이다. 워크스페이스의 NTFS3G FileRef는 이미 추가·커밋되어 있다.
+        - 로그 sink API(D9), 유니코드 정규화(P3), DOS 8.3 이름 생성(U1).
+
+        ## 완료 조건
+        - `<acceptance>`의 모든 명령이 기대 결과를 낸다.
+        - code#api의 모든 `ensure`가 테스트로 옮겨져 통과한다.
+        - `<closing>`의 보고서와 커밋이 남아 있다.
+    </objective>
+
+    <prerequisite path="NTFS3G/" state="done">
+        플래너가 만든 스캐폴드. 커밋 "Add NTFS3G package with vendored libntfs-3g"로 이미 커밋되어 있다.
+        - `.gitmodules`, `NTFS3G/Vendor/ntfs-3g`: tuxera/ntfs-3g 서브모듈. 태그 2026.9.28(커밋 7f0f841)에 고정.
+        - `NTFS3G/Package.swift`: C 타깃 `CNTFS3G`(path `Vendor`, libntfs-3g 32파일 + mkntfs 5파일 + `CNTFS3G/mkntfs_entry.c`), 제품 `CNTFS3G`, 테스트 타깃 `CNTFS3GTests`. `config.h` 재생성 명령이 주석에 있다. `main`은 `.define("main", to: "ntfs3g_mkntfs_main")`로 이름을 바꿨다.
+        - `NTFS3G/Vendor/CNTFS3G/config.h`: macOS에서 configure로 생성.
+        - `NTFS3G/Vendor/CNTFS3G/include/CNTFS3G.h`: 우산 헤더. `../config.h`를 먼저 include하고 ntfs-3g 헤더를 상대 경로로 include한다.
+        - `NTFS3G/Vendor/CNTFS3G/mkntfs_entry.c`: `ntfs3g_mkntfs()`. pthread 뮤텍스로 직렬화하고 optreset/optind를 초기화한 뒤 `ntfs3g_mkntfs_main`을 부른다.
+        - `NTFS3G/Tests/CNTFS3GTests/CNTFS3GSmokeTests.swift`: 64 MiB 스파스 이미지를 포맷하고 3 MiB 파일을 쓴 뒤 읽기 전용으로 다시 마운트해 비교한다.
+        - `NTFS3G/.gitignore`, 그리고 이 지시서 `NTFS3G/Prompts/10-swift-api.xml`.
+    </prerequisite>
+
+    <decisions source="user">
+        다시 묻지 말 것. 번호는 다른 블록에서 인용한다.
+
+        - D1. 목적은 `install.wim` 분할 제거다. 부팅은 UEFI:NTFS용 작은 FAT 파티션을 따로 두어 해결한다(SnakeStick 결정 2 변경). 이 패키지는 NTFS 볼륨만 다룬다.
+        - D2. 구현: libntfs-3g를 C 타깃으로 감싸고 Swift API를 얇게 얹는다.
+              이유: 오래 검증된 쓰기 경로를 그대로 쓴다. 설치 미디어는 Windows가 볼륨을 정상으로 인정하는 것이 가장 중요하다.
+              대가: C 의존성과 GPL. 순수 Swift 포팅과 "새 볼륨 전용 빌더"는 배제했다.
+        - D3. 서브모듈은 tuxera/ntfs-3g 업스트림을 태그 2026.9.28에 고정하고 수정하지 않는다.
+              이유: 포크 유지비를 피한다.
+              대가: 업스트림 동작을 바꿔야 할 때는 서브모듈 밖의 C 코드(헬퍼, 심볼 이름 변경)로만 우회할 수 있다.
+        - D4. 위치: 저장소 루트의 새 SwiftPM 패키지 `NTFS3G/`. 서브모듈은 `NTFS3G/Vendor/ntfs-3g`.
+        - D5. mkntfs는 파일 경로로만 볼륨을 연다(F3). 그래서 NTFS3G는 파티션 하나만 담은 이미지 파일을 다루고, 그것을 디스크 이미지의 파티션 위치로 옮기는 것은 SnakeStick의 몫이다. NTFS3G에는 경로 기반 API만 둔다.
+        - D6. API 범위는 SnakeStick에 필요한 만큼이다. 포맷, 디렉터리 생성, 파일 스트리밍 쓰기, 검증용 읽기(목록·속성·내용), 닫기. 삭제·이름 변경·truncate·속성 변경은 만들지 않는다.
+        - D7. 호스트 디렉터리 트리를 통째로 복사하는 헬퍼(`copyTree`)를 NTFS3G에 둔다.
+        - D8. `NTFSVolume`은 non-Sendable final class다. 동기 블로킹 I/O이고, 호출자가 백그라운드 Task에서 부른다. actor와 내부 락 방식은 배제했다.
+        - D9. libntfs-3g 로그는 전부 stderr로 보낸다(`ntfs_log_handler_stderr`). mkntfs가 바꿔 놓는 핸들러도 되돌린다. 로그 sink API는 만들지 않는다.
+        - D10. 플랫폼은 macOS만.
+        - D11. 타임스탬프는 원본을 보존한다. `copyTree`는 호스트 파일의 시각을 옮기고, `writeFile`과 `createDirectory`는 선택 인자로 받는다.
+        - D12. Windows에서 쓸 수 없는 이름(`<>:"|?*` 같은 금지 문자, CON·NUL 같은 예약어, 끝의 점·공백)은 거부하고 에러를 던진다.
+        - D13. 볼륨 크기 추정 헬퍼를 NTFS3G에 둔다. "추정 크기로 포맷하고 copyTree하면 성공한다"를 테스트로 보장한다.
+        - D14. 이미 있는 경로에 `writeFile`/`createDirectory`를 하면 에러다.
+        - D15. `copyTree`가 심볼릭 링크나 특수 파일(FIFO, 소켓, 디바이스)을 만나면 에러다.
+        - D16. 실행 에이전트는 커밋한다. 단 `NTFS3G/`와 `.gitmodules` 경로만 커밋한다(C1).
+        - D17. 라이선스는 GPL-2.0-or-later(ntfs-3g와 같다). SnakeStick(GPLv3)에 그대로 들어간다.
+    </decisions>
+
+    <decisions source="planner">
+        - P1. 패키지 구조: Swift 타깃 `NTFS3G`(`Sources/NTFS3G/`)가 `internal import CNTFS3G`로 C 타깃을 쓴다. 공개 제품은 `NTFS3G` 라이브러리 하나로 바꾸고 `CNTFS3G` 제품은 없앤다(타깃은 유지). 플랫폼 `.macOS(.v13)`. 테스트 타깃은 기존 `CNTFS3GTests`를 유지하고 `NTFS3GTests`를 추가한다. Swift 설정은 기존과 같이 `ApproachableConcurrency`.
+        - P2. 경로는 `String` 절대 경로다. `/`로 시작하고, 구분자는 `/`, 빈 요소·`.`·`..` 금지, 루트가 아니면 끝의 `/` 금지. 위반은 `.invalidPath`. 이름은 `ntfs_mbstoucs`로 UTF-8에서 UTF-16으로 바꾸고, 255 UTF-16 코드 유닛을 넘으면 `.invalidName`.
+        - P3. 조회는 대소문자를 구분해 정확히 일치하는 이름만 찾는다(ntfs-3g 기본, F7). 생성할 때 같은 디렉터리에 대소문자만 다른 이름이 이미 있으면 `.alreadyExists`로 거부한다. Windows는 이 둘을 구분하지 못하므로 D12의 연장이다. 유니코드 정규화는 하지 않는다(nfconv를 끈 빌드).
+        - P4. 에러 타입은 `NTFS3GError` 하나다(code#api). errno 기반 실패는 `.posix(operation:path:errno:)`로 담는다.
+        - P5. 수명: init에서 `ntfs_mount`를 부른다(`.readOnly` → `NTFS_MNT_RDONLY`, `.readWrite` → `NTFS_MNT_NONE`). `NTFS_MNT_RECOVER`, `NTFS_MNT_IGNORE_HIBERFILE`은 넘기지 않는다. `close()`는 `ntfs_umount`를 부르고 실패를 throw한다. 두 번째 `close()`는 아무 일도 하지 않는다. 닫힌 뒤의 다른 호출은 `.volumeClosed`. deinit 시점에 열려 있으면 umount하고 stderr에 경고를 한 줄 쓴다.
+        - P6. 포맷은 `ntfs3g_mkntfs`에 `-F -Q -q -s <sectorSize> -p <partitionStartSector> -H 255 -S 63 -c <clusterSize> -L <label>`을 넘긴다(F4). `clusterSize`는 기본값 4096을 항상 명시해서 넘긴다. 크기 추정(P12)과 같은 값을 쓰게 하기 위해서다. 대상 파일은 최종 크기로 이미 존재해야 한다. 레이블은 금지 문자·끝의 점과 공백 검사(`ntfs_forbidden_chars`, strict)를 통과해야 하고 32 UTF-16 코드 유닛 이하여야 한다. 예약어 검사는 파일 이름에만 적용한다(§3).
+        - P7. 로그와 로케일: libntfs-3g를 처음 부르기 전에 한 번 `ntfs_log_set_handler(ntfs_log_handler_stderr)`를 호출한다. `mkntfs_entry.c`는 mkntfs 호출 전에 `setlocale(LC_ALL, NULL)` 결과를 복사해 두고, 호출이 끝나면 로케일과 로그 핸들러(stderr)를 복원한다(F5, F16).
+        - P8. 쓰기: 원본을 8 MiB 청크로 읽어 `ntfs_attr_pwrite`로 쓴다. 부모 디렉터리는 존재해야 한다. 중간 디렉터리를 자동으로 만들지 않고 `.notFound(부모 경로)`를 던진다. progress 클로저가 throw하면 즉시 중단하고 그 에러를 그대로 다시 던진다. 반쯤 쓴 파일은 남는다. 호출자의 복구 방식은 이미지 파일 자체를 버리는 것이다.
+        - P9. 시각: `NTFSFileTimes`(creation, modification, access: `Date`)를 `ntfs_inode_set_times`로 쓴다(F9). MFT 변경 시각은 설정할 수 없으므로 API에 없다. `copyTree`의 매핑은 creation ← `st_birthtimespec`, modification ← `st_mtimespec`, access ← `st_mtimespec`. 원본을 읽는 행위가 atime을 바꾸므로 atime은 쓰지 않는다.
+        - P10. 이름 검증은 `ntfs_forbidden_names(vol, name, len, TRUE)`로 한다(내부에서 `ntfs_forbidden_chars`도 부른다, F11). 여기에 P3의 대소문자 충돌 검사를 더한다(`ntfs_names_are_equal`에 `IGNORE_CASE`와 `vol->upcase`를 넘기는 방식을 쓸 수 있다).
+        - P11. 목록: `ntfs_readdir` 결과에서 `.`, `..`, 메타데이터 파일(F8의 판정식), DOS 네임스페이스 항목을 뺀다. 결과는 Swift `String`의 `<`로 이름순 정렬한다.
+        - P12. 크기 추정: 보수적인 상한을 1 MiB 배수로 올려 돌려준다. 구성 요소는 파일별 클러스터 단위 올림의 합, 항목별 MFT 레코드, 디렉터리 인덱스, 빈 볼륨의 고정 오버헤드(실측), 여유분이다. $LogFile은 볼륨 크기에 따라 달라지므로(F15) 64 MiB 상한으로 잡거나 반복 계산한다. 공식과 실측 데이터를 보고서에 남긴다.
+        - P13. 테스트는 기본 실행과 opt-in(`NTFS3G_INTEGRATION=1`)으로 나눈다. opt-in은 hdiutil 디바이스를 만들고 수 GiB를 쓰기 때문이다.
+        - P14. 코드 주석과 README는 영어로 쓴다(저장소 관례). README는 SnakeStick, SlopDisk와 같은 man 페이지식 대문자 섹션(`# SYNOPSIS`, `# DESIGN NOTES`, `# LICENSE` 등)을 쓴다. `NTFS3G/COPYING`은 서브모듈의 `COPYING`(GPLv2 전문)을 복사한다. NTFS3G가 소유한 소스 파일(스캐폴드 포함, 서브모듈과 생성된 `config.h` 제외)의 첫 주석에 `SPDX-License-Identifier: GPL-2.0-or-later`를 넣는다.
+    </decisions>
+
+    <findings>
+        다시 조사하지 말 것. 줄번호는 서브모듈 커밋 7f0f841 기준이다. 어긋나면 심볼 이름으로 찾는다.
+
+        - F1. 스캐폴드는 빌드되고 테스트를 통과한다. `cd NTFS3G && swift test` → `Test formatWriteAndReadBack() passed` (2026-09-30). 경고는 업스트림 C 코드에서 나온 것(packed 멤버 주소, 미사용 변수 등)뿐이다.
+        - F2. Swift 6에서 `optind`/`optreset`을 Swift 코드가 직접 쓰면 "reference to var 'optind' is not concurrency-safe because it involves shared mutable state" 컴파일 에러가 난다. 그래서 초기화는 `mkntfs_entry.c`에 있다.
+        - F3. mkntfs는 `ntfs_device_default_io_ops`(= unix_io, `include/ntfs-3g/device_io.h:40`)를 하드코딩한다(`ntfsprogs/mkntfs.c:3479`). I/O 오프셋을 줄 수 없다. `-p`는 부트섹터 BPB의 hidden sectors 값만 쓴다.
+        - F4. 일반 파일에 `-s/-p/-H/-S` 없이 mkntfs를 돌리면 `-q`여도 여러 줄의 경고를 내고 해당 값을 0으로 채운다("Windows will not be able to boot from this device"). 스크래치 빌드의 mkntfs를 실행해 확인했다.
+        - F5. 라이브러리의 기본 로그 핸들러는 `ntfs_log_handler_null`이다(`libntfs-3g/logging.c`의 `ntfs_log` 초기값, DEBUG 빌드가 아닐 때). mkntfs의 `main()`은 이것을 `ntfs_log_handler_outerr`로 바꾸고 되돌리지 않는다. `ntfs_log_handler_stderr`는 `include/ntfs-3g/logging.h:50`에 있다.
+        - F6. `ntfs_create`는 이름을 `FILE_NAME_POSIX` 네임스페이스로 만든다(`libntfs-3g/dir.c:1698`). DOS 8.3 이름은 만들지 않는다.
+        - F7. `ntfs_mount`의 기본 상태는 대소문자 구분, 시스템·숨김 파일 표시다(`libntfs-3g/volume.c:530-536`). `ntfs_set_ignore_case()`를 부르면 `ntfs_readdir`가 이름을 소문자로 바꿔 돌려준다(`libntfs-3g/dir.c` `ntfs_filldir`의 `loname` 분기, 990~1010행 부근).
+        - F8. `ntfs_readdir`는 `.`, `..`을 먼저 돌려주고(`dir.c:1154, 1171`), 시스템 파일 표시가 켜져 있으면 `$MFT` 등 메타데이터도 돌려준다. 메타데이터 판정식은 `MREF(mref) != FILE_root && MREF(mref) < FILE_first_user`(`dir.c:980`). 콜백 형식은 `ntfs_filldir_t`(`include/ntfs-3g/dir.h:105`).
+        - F9. `ntfs_inode_set_times(ni, value, size, flags)`의 value는 호스트 엔디언 u64 배열 {creation, last_data_change, last_access}이고 단위는 NTFS 시각(1601-01-01 UTC부터 100 ns 단위)이다. last_mft_change는 항상 현재 시각으로 덮인다. flags에 `XATTR_CREATE`가 있으면 쓰지 않으므로 0을 넘긴다(`libntfs-3g/inode.c:1523-1575`).
+        - F10. `ntfs_attr_open(ni, AT_DATA, NULL, 0)`으로 이름 없는 $DATA를 연다. name_len이 0이면 내부에서 name을 NULL로 바꾼다(`libntfs-3g/attrib.c:429`). 스모크 테스트가 이 방식으로 통과했다.
+        - F11. `ntfs_forbidden_chars(name, len, strict)`와 `ntfs_forbidden_names(vol, name, len, strict)`가 있다(`include/ntfs-3g/unistr.h:71-73`). strict이면 끝의 공백·점도 금지한다(`libntfs-3g/unistr.c:1502`). `ntfs_forbidden_names`는 내부에서 `ntfs_forbidden_chars`를 부른다(`unistr.c:1551`). 대소문자 무시 비교는 `ntfs_names_are_equal`(`unistr.h:29`, `IGNORE_CASE_BOOL`은 `types.h:118`).
+        - F12. macOS 26의 FSKit NTFS 드라이버가 ntfs-3g로 만든 이미지를 root 권한 없이 읽기 전용으로 마운트한다. 순서는 `hdiutil attach -imagekey diskimage-class=CRawDiskImage -nomount x.img` → `diskutil mount readOnly -mountPoint <dir> /dev/diskN`이고, mount 출력은 `(ntfs, local, nodev, nosuid, read-only, noowners, noatime, fskit, ...)`이다. 파티션 테이블이 없는 이미지는 whole-disk 디바이스로 붙는다. 2026-09-30에 확인했다.
+        - F13. `ntfs_umount`는 실패해도 볼륨과 디바이스를 해제한다. force 인자는 쓰이지 않는다(`libntfs-3g/volume.c:1466-1480`).
+        - F14. `ntfs_mbstoucs`는 `use_utf8 = 1`(기본값)일 때 로케일과 무관한 내장 UTF-8 변환기를 쓴다(`libntfs-3g/unistr.c:76, 1027-1045`). `ntfs_set_char_encoding()`이 불리면 로케일 의존 변환으로 바뀐다(`unistr.c:1644`). mkntfs는 이 함수를 부르지 않는다.
+        - F15. mkntfs의 $LogFile 크기는 볼륨 크기에 따라 256 KiB ~ 64 MiB다(`ntfsprogs/mkntfs.c:4052-4079`).
+        - F16. mkntfs의 `main()`은 `utils_set_locale()`로 `setlocale(LC_ALL, "")`을 부른다(`ntfsprogs/utils.c:133-146`). 프로세스 전역 로케일이 바뀐다.
+        - F17. Swift 임포트: `NTFS_MNT_*`(익명 enum)은 정수 상수로, `ntfs_mount_flags`는 `UInt`로 들어온다. `BOOL`(ntfs-3g의 `typedef enum`)은 `BOOL(0)`으로 만들 수 있다. `MREF`, `le*_to_cpu`, `NVol*` 같은 함수형 매크로는 임포트되지 않는다. 스모크 테스트는 Foundation 없이 `Darwin`만 임포트해서 통과했다.
+        - F18. 볼륨 정보: `vol->vol_name`(char*), `vol->sector_size`, `vol->cluster_size`, `vol->nr_clusters`, `vol->free_clusters`, `ntfs_volume_get_free_space(vol)` (`include/ntfs-3g/volume.h:187-313`).
+        - F19. 같은 저장소에서 다른 Claude 세션이 `slopdisk/`를 구현 중이고, 워킹 트리에 그 세션의 미커밋 변경이 있다(`git status --short`).
+    </findings>
+
+    <unknowns>
+        이 작업에서는 확인할 수 없다. 보고서의 "확인하지 못한 것"에 적는다.
+        - U1. Windows와 Windows 설치 프로그램이 POSIX 네임스페이스 이름(F6)과 DOS 이름이 없는 볼륨을 문제없이 읽는지.
+        - U2. Windows `chkdsk`가 이 볼륨을 깨끗하다고 판정하는지.
+    </unknowns>
+
+    <reference name="스캐폴드" path="NTFS3G/" role="먼저 읽는다">
+        `Package.swift`, `Vendor/CNTFS3G/include/CNTFS3G.h`, `Vendor/CNTFS3G/mkntfs_entry.c`, `Tests/CNTFS3GTests/CNTFS3GSmokeTests.swift`.
+    </reference>
+
+    <reference name="libntfs-3g 심볼" path="NTFS3G/Vendor/ntfs-3g/include/ntfs-3g/" role="심볼 위치 (커밋 7f0f841 기준, 어긋나면 이름으로 찾는다)">
+        | 심볼 | 위치 |
+        |---|---|
+        | `ntfs_mount`, `ntfs_umount`, `ntfs_volume_get_free_space` | volume.h:301, 302, 313 |
+        | `ntfs_pathname_to_inode`, `ntfs_create`, `ntfs_readdir`, `ntfs_filldir_t` | dir.h:68, 70, 109, 105 |
+        | `ntfs_inode_lookup_by_name` | dir.h:62 |
+        | `ntfs_attr_open`, `ntfs_attr_close`, `ntfs_attr_pread`, `ntfs_attr_pwrite` | attrib.h:295-302 |
+        | `ntfs_inode_open`, `ntfs_inode_close`, `ntfs_inode_set_times` | inode.h:182, 184, 218 |
+        | `ntfs_names_are_equal`, `ntfs_mbstoucs`, `ntfs_ucsfree`, `ntfs_forbidden_chars`, `ntfs_forbidden_names` | unistr.h:29, 58, 69, 71, 72 |
+        | `ntfs_log_set_handler`, `ntfs_log_handler_stderr` | logging.h:41, 50 |
+        | `MREF`, `FILE_first_user`, `FILE_root` | layout.h:327, 245, 225 |
+    </reference>
+
+    <reference name="SnakeStick README" path="README.md" role="이미지 우선 설계의 배경. 읽기만 한다."/>
+
+    <code id="layout" lang="text/plain">
+        NTFS3G/
+          Package.swift
+          README.md                          §11
+          COPYING                            §11, 서브모듈 COPYING 복사
+          Prompts/10-swift-api.xml           이 지시서
+          Prompts/10-swift-api.report.md     보고서 (<closing>)
+          Sources/NTFS3G/                    Swift 타깃. 파일 분할은 실행하는 쪽이 정한다.
+          Vendor/ntfs-3g/                    서브모듈. 수정 금지.
+          Vendor/CNTFS3G/config.h            생성물. 수정 금지.
+          Vendor/CNTFS3G/include/CNTFS3G.h   헬퍼 선언 추가 가능
+          Vendor/CNTFS3G/*.c                 mkntfs_entry.c + 새 C 헬퍼
+          Tests/CNTFS3GTests/                기존 스모크 테스트
+          Tests/NTFS3GTests/                 새 테스트
+    </code>
+
+    <code id="api" lang="text/x-pseudocode; variant=swift+imagine">
+        // hint: 공개 API 전체다. 타입 이름, 메서드 이름, 인자 레이블, 반환 타입이 계약이다.
+        //       내부 구현, 파일 분할, private 헬퍼는 실행하는 쪽이 정한다.
+        internal import CNTFS3G    // 실제 타깃. 공개 API에 C 타입이 새어 나가지 않는다.
+        import Foundation          // URL, Date
+
+        public struct NTFSFormatOptions {
+            public var label: String = ""                // 금지 문자 검사, 32 UTF-16 유닛 이하 (P6, §3)
+            public var clusterSize: Int = 4096           // 항상 -c로 넘긴다 (P6)
+            public var sectorSize: Int = 512             // 512 또는 4096. 대상 디스크의 논리 섹터 크기
+            public var partitionStartSector: UInt64 = 0  // BPB hidden sectors (F3)
+        }
+
+        public struct NTFSFileTimes { creation: Date; modification: Date; access: Date }   // P9
+        public enum NTFSItemKind { case file, directory }
+        public struct NTFSDirectoryEntry { name: String; kind: NTFSItemKind }
+        public struct NTFSItemAttributes { kind: NTFSItemKind; size: Int64; times: NTFSFileTimes }
+        public struct NTFSCopyProgress { completedBytes: Int64; totalBytes: Int64; currentPath: String }
+        public struct NTFSCopySummary { files: Int; directories: Int; bytes: Int64 }
+
+        public enum NTFS3GError: Error {
+            case invalidPath(String)             // P2
+            case invalidName(String)             // D12, P2
+            case notFound(String)
+            case alreadyExists(String)           // D14, P3
+            case notADirectory(String)
+            case isADirectory(String)
+            case unsupportedFileType(URL)        // D15
+            case readOnlyVolume
+            case volumeClosed                    // P5
+            case formatFailed(status: Int32)     // mkntfs 종료 코드
+            case posix(operation: String, path: String?, errno: Int32)
+        }
+
+        public final class NTFSVolume {          // non-Sendable (D8)
+            public enum Mode { case readOnly, readWrite }
+
+            public var label: String { get }
+            public var clusterSize: Int { get }
+            public var totalBytes: Int64 { get }
+            public var freeBytes: Int64 { get }  // 호출 시점의 값 (F18)
+
+            imagine public static func format(path: String, options: NTFSFormatOptions = .init()) throws {
+                requirements(`
+                    이미 최종 크기로 존재하는 파일을 NTFS로 포맷한다. ntfs3g_mkntfs를 P6의 인자로 부른다.
+                    레이블을 먼저 검증한다. 종료 코드가 0이 아니면 formatFailed.
+                `);
+                ensure(/* 64 MiB 파일 */ format(p, .init(label: "SNAKESTICK")) 후 NTFSVolume(path: p, mode: .readOnly).label == "SNAKESTICK");
+                ensure(format(p, .init(sectorSize: 4096)) 후 readOnly 마운트가 성공한다);
+                ensure(존재하지 않는 경로에 format → throws);
+                ensure(format(p, .init(label: "A:B")) → throws NTFS3GError.invalidName);
+                ensure(format 전후 setlocale(LC_ALL, nil)의 문자열이 같다, "F16, P7");
+            }
+
+            imagine public static func estimatedVolumeSize(forTreeAt source: URL, clusterSize: Int = 4096) throws -> Int64 {
+                requirements(`
+                    source 디렉터리의 내용을 copyTree로 담을 수 있는 최소 볼륨 크기의 보수적인 상한. 1 MiB 배수. (D13, P12)
+                    source 순회 규칙(심볼릭 링크·특수 파일은 에러)은 copyTree와 같다.
+                `);
+                ensure(아래 각 픽스처 T에 대해: 크기 = estimatedVolumeSize(T)인 파일 생성 → format → copyTree(T)가 성공한다);
+                //      픽스처: 빈 디렉터리 / 4 KiB 미만 파일 5000개 / 1 MiB~64 MiB 파일 몇 개 / 깊이 20 디렉터리 / 한글 이름 포함
+                ensure(estimatedVolumeSize(T) % (1 << 20) == 0);
+                ensure(estimatedVolumeSize(T) - contentBytes(T) <= contentBytes(T) / 33 + 96 * (1 << 20), "쓸데없이 크지 않다");
+            }
+
+            imagine public init(path: String, mode: Mode) throws {
+                requirements(`ntfs_mount. P5의 플래그 규칙. 실패는 posix(operation: "mount", ...).`);
+                ensure(포맷하지 않은 0으로 채운 파일 → throws);
+            }
+
+            imagine public func createDirectory(_ path: String, times: NTFSFileTimes? = nil) throws {
+                requirements(`부모는 존재해야 한다 (P8). D12, D14, P3 검사. times가 있으면 생성 후 설정한다.`);
+                ensure(createDirectory("/a") 후 contentsOfDirectory("/") == [.init(name: "a", kind: .directory)]);
+                ensure(createDirectory("/a/b") (부모 /a 없음) → throws notFound("/a"));
+                ensure(createDirectory("/Sources") 후 createDirectory("/sources") → throws alreadyExists, "P3");
+                ensure(createDirectory("/CON") → throws invalidName);
+                ensure(createDirectory("/a.") → throws invalidName);
+                ensure(createDirectory("/a ") → throws invalidName);
+                ensure(createDirectory("a") → throws invalidPath);
+                ensure(createDirectory("/a//b") → throws invalidPath);
+                ensure(readOnly 볼륨에서 createDirectory → throws readOnlyVolume);
+            }
+
+            imagine public func writeFile(_ path: String, from source: URL, times: NTFSFileTimes? = nil,
+                                          progress: ((Int64) throws -> Void)? = nil) throws {
+                requirements(`
+                    source를 8 MiB 청크로 읽어 쓴다 (P8). progress에는 누적 바이트를 넘긴다.
+                    데이터를 다 쓴 뒤에 times를 설정한다 (C8).
+                `);
+                ensure(20 MiB + 12345 바이트 파일을 쓰고 다시 마운트해 readFile로 읽으면 바이트 단위로 같다);
+                ensure(progress에 넘어온 마지막 값 == 원본 크기이고 값이 단조 증가한다);
+                ensure(progress가 CancellationError를 throw하면 writeFile이 CancellationError를 throw한다);
+                ensure(times를 주면 재마운트 후 attributesOfItem(path).times가 100 ns 정밀도에서 같다);
+                ensure(같은 경로에 두 번 → 두 번째가 throws alreadyExists, "D14");
+                ensure(이름 "한글 파일.txt"로 쓰고 재마운트 후 contentsOfDirectory에 같은 문자열로 나온다, "C5");
+            }
+
+            imagine public func writeFile(_ path: String, contents: [UInt8], times: NTFSFileTimes? = nil) throws {
+                requirements(`메모리의 작은 파일용. 규칙은 위와 같다. 빈 배열이면 크기 0 파일.`);
+                ensure(contents: [] → attributesOfItem(path).size == 0);
+            }
+
+            imagine public func copyTree(from source: URL, to destination: String = "/",
+                                         progress: ((NTFSCopyProgress) throws -> Void)? = nil) throws -> NTFSCopySummary {
+                requirements(`
+                    source 디렉터리의 "내용"을 이미 존재하는 destination 디렉터리 안으로 복사한다 (cp -R src/. dst 와 같은 의미).
+                    먼저 전체를 훑어 totalBytes를 구한다. 이름순으로 결정적인 순서로 복사한다.
+                    파일과 디렉터리의 시각을 P9 매핑으로 옮긴다. 디렉터리 시각은 그 안의 항목을 다 만든 뒤에 설정한다 (C8).
+                    심볼릭 링크, 특수 파일 → unsupportedFileType (D15). 부분 복사 상태를 되돌리지 않는다.
+                `);
+                ensure(픽스처 트리를 복사하고 재마운트해서 전체 트리(이름, 종류, 크기, 내용, modification 시각)가 원본과 같다);
+                ensure(summary.files, summary.directories, summary.bytes가 원본 집계와 같다);
+                ensure(원본에 심볼릭 링크가 있으면 → throws unsupportedFileType);
+                ensure(원본에 FIFO(mkfifo)가 있으면 → throws unsupportedFileType);
+                // hint: 대소문자 충돌(P3)은 createDirectory의 ensure로 검증한다. 호스트 APFS가 대소문자를 구분하지 않아 copyTree 픽스처로는 만들 수 없다.
+            }
+
+            imagine public func contentsOfDirectory(_ path: String) throws -> [NTFSDirectoryEntry] {
+                requirements(`P11의 필터와 정렬.`);
+                ensure(방금 포맷한 볼륨의 contentsOfDirectory("/") == [], "$MFT, ., .. 가 없다");
+                ensure(파일 경로에 대해 → throws notADirectory);
+            }
+
+            imagine public func attributesOfItem(_ path: String) throws -> NTFSItemAttributes
+            //      ensure는 writeFile과 copyTree 쪽에서 검증된다. 디렉터리의 size는 0이다.
+
+            imagine public func readFile(_ path: String, into buffer: UnsafeMutableRawBufferPointer, at offset: Int64) throws -> Int {
+                requirements(`offset부터 최대 buffer.count 바이트를 읽고 읽은 바이트 수를 돌려준다. EOF이면 0.`);
+                ensure(크기 N 파일에서 readFile(at: N) == 0);
+                ensure(디렉터리에 readFile → throws isADirectory);
+            }
+
+            imagine public func close() throws {
+                requirements(`P5. ntfs_umount가 실패해도 볼륨은 해제된 것으로 취급한다 (F13, C7).`);
+                ensure(close() 두 번 → 두 번째는 아무 일도 하지 않는다);
+                ensure(close() 후 contentsOfDirectory("/") → throws volumeClosed);
+            }
+        }
+    </code>
+
+    <specs>
+        §1. 패키지 구조 (P1, P14)
+        - code#layout 배치를 따른다. `Package.swift`의 C 타깃 설정(sources 목록, `main` 이름 변경, 헤더 검색 경로)은 스캐폴드 그대로 두고, Swift 타깃·제품·테스트 타깃·플랫폼만 추가하거나 바꾼다.
+        - 새 C 파일은 `Vendor/CNTFS3G/`에 두고 `Package.swift`의 sources에 추가한다.
+
+        §2. 로그와 로케일 (D9, P7, F5, F14, F16)
+        - 핸들러 설정은 프로세스당 한 번이다. 포맷과 마운트 둘 다 이 설정을 거친 뒤 libntfs-3g를 부른다.
+        - `mkntfs_entry.c`는 뮤텍스 안에서 로케일 저장 → optreset/optind 초기화 → `ntfs3g_mkntfs_main` → 로케일 복원 → 핸들러를 stderr로 재설정 순서로 처리한다.
+        - `ntfs_set_char_encoding`과 `ntfs_set_locale`은 어디서도 부르지 않는다(C5).
+
+        §3. 포맷 (P6)
+        - `NTFSVolume.format`은 인자 배열을 만들어 `ntfs3g_mkntfs`를 부른다. 레이블은 파일 이름이 아니므로 예약어(CON 등) 검사는 하지 않는다. 볼륨이 아직 없으니 `ntfs_forbidden_chars(name, len, TRUE)`와 길이 제한(P6)만 적용한다.
+
+        §4. 경로·이름·조회 (P2, P3, P10)
+        - 경로 파싱은 순수 Swift다. 이름 변환, 검증, 조회는 C 함수(`ntfs_mbstoucs`, `ntfs_forbidden_names`, `ntfs_pathname_to_inode` 또는 `ntfs_inode_lookup_by_name`)를 쓴다.
+        - `MREF` 같은 매크로가 필요하면 `Vendor/CNTFS3G/`에 static inline 함수나 C 헬퍼를 만들어 헤더에 선언한다.
+
+        §5. 볼륨 수명 (P5)
+        - `close()`는 내부 포인터를 먼저 nil로 만든 뒤 `ntfs_umount` 결과를 검사한다.
+
+        §6. 쓰기 (D11, D14, P8, P9)
+        - `ntfs_create(parent, 0, name, len, S_IFREG 또는 S_IFDIR)` 뒤 파일이면 `ntfs_attr_open(ni, AT_DATA, NULL, 0)` + `ntfs_attr_pwrite` 루프.
+        - `Date` → NTFS 시각 변환: (Unix epoch 초 + 11644473600) × 10^7 + 초 미만 부분의 100 ns 단위. 1601-01-01 이전이거나 u64 범위를 넘는 `Date`는 `NTFS3GError`에 케이스를 추가하지 말고 `.posix(operation: "setTimes", path: 경로, errno: EINVAL)`로 던진다.
+
+        §7. 읽기 (P11)
+        - 목록은 `ntfs_readdir` 콜백으로 모은다. 콜백은 Swift `@convention(c)` 클로저와 컨텍스트 포인터로 만들거나 C 헬퍼로 모아도 된다.
+        - 속성의 size는 이름 없는 $DATA의 `data_size`, 디렉터리는 0. 시각은 `ntfs_inode`의 필드에서 읽는다.
+
+        §8. copyTree (D7, D15, P9)
+        - 원본 순회는 `lstat` 기반으로 한다. 심볼릭 링크를 따라가지 않는다.
+        - 진행률 콜백은 파일 청크 단위로 부른다. currentPath는 NTFS 쪽 경로다.
+
+        §9. 크기 추정 (D13, P12)
+        - 먼저 여러 볼륨 크기(예: 64 MiB, 1 GiB, 8 GiB 스파스 파일)에서 빈 볼륨의 freeBytes를 실측해 고정 오버헤드를 정한다. 측정값과 공식을 보고서에 표로 남긴다.
+
+        §10. 테스트 (P13)
+        - 기본 실행: code#api의 모든 ensure. 이미지는 임시 디렉터리의 스파스 파일로 만들고 테스트가 끝나면 지운다.
+        - opt-in(`NTFS3G_INTEGRATION=1`일 때만 실행, 아니면 건너뜀):
+          (a) FSKit 교차 검증: 픽스처 트리를 copyTree한 이미지를 F12의 방법으로 읽기 전용 마운트하고, 호스트 FileManager로 읽은 트리(이름, 종류, 크기, 내용, 수정 시각)를 원본과 비교한다. 마운트 해제와 detach는 실패 경로에서도 반드시 한다.
+          (b) 4 GiB 초과: 4 GiB + 1 MiB 원본(스파스 파일, 경계 근처에 표식 바이트)을 writeFile하고 재마운트해 크기와 4 GiB 경계 앞뒤 표식을 확인한다. 가능하면 (a)로도 크기를 확인한다.
+
+        §11. 문서
+        - `NTFS3G/README.md`: 목적, SYNOPSIS(Swift 예제), 파티션 전용 이미지를 다루는 이유(D5, 회피임을 명시), 서브모듈 무수정 원칙과 `config.h` 재생성 방법, 로그·로케일 부작용, U1·U2, 라이선스.
+        - 회피를 설계처럼 쓰지 않는다. D5(오프셋 불가)와 P3(POSIX 네임스페이스 그대로)는 제약 때문에 택한 것임을 README에 적는다.
+    </specs>
+
+    <constraints>
+        - C1. `slopdisk/`는 다른 세션의 작업물이다. 읽기 외에 아무것도 하지 않는다. git은 경로를 한정해서만 쓴다. `git add -A`, `git add .`, `git commit -a`, `git stash`, 경로 없는 `git reset`/`git checkout`은 금지. 커밋은 `git add -- NTFS3G .gitmodules` 후 `git commit -m "..." -- NTFS3G .gitmodules`처럼 pathspec을 붙여서 한다. pathspec 없는 `git commit`은 다른 세션이 스테이징한 것까지 커밋한다.
+        - C2. 서브모듈은 한 글자도 고치지 않는다. 끝났을 때 `git -C NTFS3G/Vendor/ntfs-3g status --short`가 비어 있어야 한다. 빌드 산출물이 서브모듈 안에 생기지 않게 한다(configure나 make를 서브모듈 안에서 돌리지 않는다).
+        - C3. `-Dmain=ntfs3g_mkntfs_main`은 `CNTFS3G` 타깃 전체에 적용된다. 새 C 파일에 `main`이라는 이름의 함수·변수·필드를 쓰면 조용히 이름이 바뀐다.
+        - C4. mkntfs는 프로세스 전역 로케일을 바꾼다(F16). 복원하지 않으면 앱의 다른 C 수준 숫자 파싱·서식이 사용자의 로케일(예: de_DE에서는 소수점이 쉼표)로 바뀐다. 영어 환경에서는 드러나지 않는다.
+        - C5. 한글 이름은 `ntfs_set_char_encoding`이 불리지 않아야 제대로 변환된다(F14). ASCII 이름만으로 테스트하면 드러나지 않는다. 한글 이름 테스트를 반드시 둔다. 이름은 정규화하지 않고 바이트 그대로 비교한다.
+        - C6. `ntfs_set_ignore_case`를 부르지 않는다. 목록의 이름이 조용히 소문자로 바뀐다(F7).
+        - C7. `ntfs_umount`가 실패한 뒤에도 볼륨 포인터는 해제된 상태다(F13). 다시 쓰거나 다시 umount하면 이중 해제가 된다.
+        - C8. 자식을 만들면 부모 디렉터리의 수정 시각이 바뀌고, 데이터를 쓰면 파일의 수정 시각이 바뀐다. 시각은 반드시 마지막에 설정한다. 순서가 틀려도 테스트가 "대충 비슷한 시각"으로 비교하면 통과하므로, 시각 비교는 과거의 고정 시각(예: 2001-02-03)을 써서 정확히 한다.
+        - C9. last_mft_change는 설정할 수 없다(F9). 테스트에서 이 값을 비교하지 않는다.
+        - C10. `ntfs_attr_pwrite`와 `ntfs_attr_pread`는 요청보다 적게 처리할 수 있다. 루프를 돌고, 0 이하이면 errno로 에러를 만든다.
+        - C11. `Foundation`과 `CNTFS3G`를 같은 파일에서 임포트하면 `BOOL`이 `ObjectiveC.BOOL`과 겹칠 수 있다. 그러면 `CNTFS3G.BOOL`로 한정한다.
+        - C12. opt-in 통합 테스트는 수 GiB의 디스크를 쓰고 `/dev/diskN`을 만든다. 기본 `swift test`에서는 절대 실행되지 않아야 한다.
+    </constraints>
+
+    <acceptance>
+        저장소 루트에서 실행한다.
+
+        - `cd NTFS3G && swift build` → 성공.
+        - `cd NTFS3G && swift test` → 전부 통과. opt-in 테스트는 skipped로 표시된다.
+        - `cd NTFS3G && NTFS3G_INTEGRATION=1 swift test` → 전부 통과. 끝난 뒤 `hdiutil info`에 테스트 이미지가 남아 있지 않다.
+        - `git -C NTFS3G/Vendor/ntfs-3g status --short` → 출력 없음. `git -C NTFS3G/Vendor/ntfs-3g describe --tags` → `2026.9.28`.
+        - 이 작업의 커밋들에 대해 `git show --stat --format= <커밋>` → `NTFS3G/`와 `.gitmodules` 밖의 경로가 없다.
+        - code#api의 모든 `ensure`가 테스트로 존재하고 통과한다. 보고서에 ensure → 테스트 이름 대응표가 있다.
+    </acceptance>
+
+    <closing>
+        - 커밋: 영어 명령형 제목 한 줄(필요하면 본문). `Co-Authored-By` 트레일러를 넣지 않는다. C1의 방식으로만 커밋한다.
+          논리 단위로 나눈다. 예: Swift API 코어 → copyTree와 크기 추정 → 통합 테스트 → README·COPYING·SPDX.
+        - 보고서: `NTFS3G/Prompts/10-swift-api.report.md`, 한국어. 다음을 나눠 적는다.
+          - 확인한 것: 실제로 실행해서 통과한 명령과 그 출력 요약만. 실행하지 않은 것을 적지 않는다.
+          - 확인하지 못한 것: U1, U2와 그 밖에 검증하지 못한 것.
+          - ensure → 테스트 이름 대응표.
+          - 크기 추정 공식과 실측 표(§9).
+          - 멈추고 보고해야 했던 지점이 있었다면 그 내용. `<decisions>`와 다르게 구현한 것이 있다면 전부.
+        - 보고서도 커밋에 포함한다.
+    </closing>
+</agent-task>
