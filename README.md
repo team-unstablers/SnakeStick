@@ -32,22 +32,26 @@ image, and the only thing that ever touches the target disk is a plain block cop
     - `make`: a sparse file exactly as large as the target disk. On APFS the unused space is not
       allocated, so this costs only as much as the contents.
     - `build`: sized from the ISO contents plus headroom, or as given by `--imgsize`.
-2. **Partition it with SlopDisk.** A GPT with a single Microsoft Basic Data partition, sized to fit
-   the contents. The rest of the disk is left unpartitioned.
-3. **Format it.** Attach the image with `hdiutil attach -imagekey diskimage-class=CRawDiskImage -nomount`
-   and run `newfs_msdos -F 32` on the partition.
-4. **Copy the ISO contents.**
-    - The partition is mounted with `nobrowse`, and files are copied without extended attributes or
-      quarantine flags.
-    - FAT32 cannot hold files of 4 GiB or larger. If `sources/install.wim` (or `install.esd`) exceeds
-      that limit, it is split into `install.swm`, `install2.swm`, ... using libwim's `wimlib_split()`.
-      libwim is statically linked.
-    - macOS metadata (`.fseventsd`, `.Spotlight-V100`, `._*`, `.DS_Store`) is removed before unmounting.
-5. **Detach the image.** `build` stops here.
+2. **Partition it with SlopDisk.** A GPT with two partitions: an NTFS data partition (Microsoft Basic
+   Data) sized to fit the contents, and a small FAT partition that holds the UEFI:NTFS boot loader.
+   The rest of the disk is left unpartitioned. The order, position and type of the FAT partition are
+   to be decided.
+3. **Build the NTFS volume with NTFS3G.**
+    - A separate, partition-sized image file is formatted with mkntfs, and the ISO contents are copied
+      into it in user space through libntfs-3g. Nothing is mounted for writing.
+    - The ISO itself is the copy source. How it is read (a read-only `hdiutil` mount or a built-in UDF
+      reader) is to be decided.
+    - Files of 4 GiB or larger, such as `sources/install.wim`, are copied as they are. Nothing is split.
+    - File timestamps are preserved. Names that Windows cannot use are rejected.
+4. **Add the UEFI:NTFS partition.** It contains the Secure Boot signed UEFI:NTFS loader and its NTFS
+   driver. Whether it is written from a prebuilt FAT image or assembled from the signed binaries is
+   to be decided.
+5. **Assemble the disk image.** The NTFS partition image is copied into the disk image at the
+   partition's offset, keeping the file sparse. `build` stops here.
 6. **Write it to the target disk** (`make`, `write`).
     - Only this step needs elevated privileges.
     - The target is unmounted, and automatic mounting is blocked while writing.
-    - Only the regions that matter are written: from the start of the image to the end of the
+    - Only the regions that matter are written: from the start of the image to the end of the last
       partition, and the backup GPT at the end of the disk.
     - For `write`, the protective MBR, the primary GPT header and the backup GPT are regenerated in
       memory to match the target disk's size.
@@ -61,19 +65,32 @@ image, and the only thing that ever touches the target disk is a plain block cop
   disk copies byte ranges and knows nothing about partition tables. This also lets `make` and `build`
   share one code path, and confines elevated privileges to the final copy.
 - **UEFI only.** Legacy BIOS boot is not supported. Windows 11 requires UEFI, and BIOS boot would need
-  an MBR plus FAT32 boot code.
-- **A single Basic Data partition, no separate ESP.** UEFI firmware boots removable media from
-  `\EFI\BOOT\BOOTX64.EFI` on a FAT partition, so a separate ESP is unnecessary. A single partition keeps
-  `bootmgr` and `sources/boot.wim` together. Windows may also not assign a drive letter to an ESP-typed
-  partition, which could keep Windows Setup from finding its installation files.
+  an MBR plus partition boot code.
+- **NTFS plus UEFI:NTFS instead of FAT32.** FAT32 cannot hold files of 4 GiB or larger, and
+  `sources/install.wim` often exceeds that. Instead of splitting the WIM, the installation files live on
+  an NTFS partition. Most UEFI firmware only reads FAT, so a small FAT partition carries
+  [UEFI:NTFS](https://github.com/pbatard/uefi-ntfs), a boot loader that loads an NTFS driver and then
+  starts `\EFI\BOOT\BOOTX64.EFI` from the NTFS partition. Rufus uses the same arrangement.
+- **NTFS in user space.** NTFS volumes are created by NTFS3G, a Swift package in this repository that
+  wraps libntfs-3g, vendored as an unmodified submodule. Because nothing is mounted for writing, no
+  macOS metadata (`.fseventsd`, `.Spotlight-V100`, `._*`, `.DS_Store`) ends up on the stick.
 
 # KNOWN LIMITATIONS
 
 These are accepted trade-offs, not design goals.
 
-- **Images are not bit-for-bit reproducible.** The FAT32 volume is created with `newfs_msdos` and
-  populated through a macOS mount, so volume serial numbers, timestamps and cluster placement differ
-  between runs. Writing FAT32 directly would fix this, but SnakeStick uses the system tools for now.
+- **Images are not bit-for-bit reproducible.** mkntfs assigns a random volume serial number, and NTFS
+  records creation and MFT change times that cannot be preset, so images differ between runs.
+- **The NTFS partition is built as a separate file.** mkntfs can only format a whole file or device,
+  not a region at an offset inside a larger image. NTFS3G therefore formats a partition-sized image,
+  which is then copied into the disk image. This costs one extra copy.
+- **Booting depends on UEFI:NTFS.** The loader and its NTFS driver are third-party code. Some PCs only
+  boot it with Secure Boot enabled after the "3rd party UEFI CA" is allowed in the firmware settings.
+  Microsoft's 2011 Secure Boot certificates expire in 2026; how SnakeStick handles the 2023
+  certificates is to be decided.
+- **Windows compatibility of NTFS3G volumes is not yet verified.** libntfs-3g creates file names in the
+  POSIX namespace and does not generate DOS 8.3 names. Windows is expected to handle this, but it has
+  not been tested on real hardware yet.
 - **Plain `dd` leaves the backup GPT in the wrong place.** If a `build` image is written with `dd` to a
   larger stick, the backup GPT header ends up at the end of the image rather than the end of the disk.
   Firmware and partitioning tools may warn about or reject this. Use `SnakeStick write` instead.
@@ -81,3 +98,6 @@ These are accepted trade-offs, not design goals.
 # LICENSE
 
 GPLv3
+
+Bundled packages keep their own licenses: SlopDisk is under the Artistic License 2.0, and NTFS3G and
+libntfs-3g are under the GNU GPL version 2 or later.
