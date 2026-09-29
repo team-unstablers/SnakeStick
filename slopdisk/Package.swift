@@ -4,26 +4,37 @@
 import PackageDescription
 
 let package = Package(
-    name: "slopdisk",
+    name: "SlopDisk",
+    platforms: [
+        .macOS(.v13),
+    ],
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
-            name: "slopdisk",
-            targets: ["slopdisk"]
+            name: "SlopDisk",
+            targets: ["SlopDisk"]
+        ),
+        .executable(
+            name: "sdinspect",
+            targets: ["sdinspect"]
         ),
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "slopdisk",
+            name: "SlopDisk",
+            swiftSettings: [
+                .enableUpcomingFeature("ApproachableConcurrency"),
+            ],
+        ),
+        .executableTarget(
+            name: "sdinspect",
+            dependencies: ["SlopDisk"],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
             ],
         ),
         .testTarget(
-            name: "slopdiskTests",
-            dependencies: ["slopdisk"],
+            name: "SlopDiskTests",
+            dependencies: ["SlopDisk"],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
             ],
