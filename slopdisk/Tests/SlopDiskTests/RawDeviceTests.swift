@@ -45,20 +45,45 @@ import Testing
         }
     }
 
-    @Test(arguments: [false, true])
-    func injectedRegularFileIsRejectedAndLeftOpen(closeOnDeinit: Bool) throws {
+    @Test func borrowedDescriptorStaysOpenWhenRejected() throws {
         try withTemporaryDirectory { directory in
             let path = directory + "/disk.img"
             try makeT3Image(at: path)
             let fd = open(path, O_RDWR | O_CLOEXEC)
             try #require(fd >= 0)
             defer { close(fd) }
+            let identity = try #require(Self.fileIdentity(fd))
             expectInvalidArgument {
-                try SDRawDevice(fileDescriptor: fd, closeOnDeinit: closeOnDeinit, acknowledging: .dataLossRisk)
+                try SDRawDevice(fileDescriptor: fd, closeOnDeinit: false, acknowledging: .dataLossRisk)
             }
-            #expect(fcntl(fd, F_GETFD) != -1, "a failed init leaves the descriptor open")
+            #expect(Self.fileIdentity(fd) == identity, "a borrowed descriptor stays open")
             _ = try SDFileBlockDevice(path: path, mode: .readWrite, sectorSize: 512)
         }
+    }
+
+    @Test func ownedDescriptorIsClosedWhenRejected() throws {
+        try withTemporaryDirectory { directory in
+            let path = directory + "/disk.img"
+            try makeT3Image(at: path)
+            let fd = open(path, O_RDWR | O_CLOEXEC)
+            try #require(fd >= 0)
+            let identity = try #require(Self.fileIdentity(fd))
+            expectInvalidArgument {
+                try SDRawDevice(fileDescriptor: fd, closeOnDeinit: true, acknowledging: .dataLossRisk)
+            }
+            // Other tests run in parallel and may already have reused the number, so compare what it refers to.
+            // Only this test opens this file. (The descriptor must not be closed here: it is no longer ours.)
+            #expect(Self.fileIdentity(fd) != identity, "an owned descriptor is closed when the init throws")
+        }
+    }
+
+    /// `(st_dev, st_ino)` of what `fd` refers to, or `nil` if it is not open.
+    static func fileIdentity(_ fd: Int32) -> [UInt64]? {
+        var info = stat()
+        guard fstat(fd, &info) == 0 else {
+            return nil
+        }
+        return [UInt64(info.st_dev), UInt64(info.st_ino)]
     }
 
     @Test func writeOnlyDescriptorIsRejected() throws {
@@ -157,6 +182,8 @@ struct RawDeviceAttachTests {
                 }
                 #expect(try device.readSectors(lba: 0, count: 64) == before)
                 #expect(try SDDisk(device: device).scheme == .none)
+                // Nothing to flush; the cache ioctl itself would fail with EACCES on a read-only descriptor.
+                try device.synchronize()
             }
             try attached.detach()
             #expect(try fileBytes(attached.image) == [UInt8](repeating: 0, count: 64 << 20), "the image is still blank")
@@ -373,6 +400,24 @@ struct RawDeviceAttachTests {
             }
             try attached.detach()
             try Self.expectT3Image(attached.image, partitions: partitions)
+        }
+    }
+
+    /// On /dev/diskN, writes sit in the buffer cache and DKIOCSYNCHRONIZECACHE alone does not write them back.
+    /// After `synchronize()` they must have reached the image while the device is still open.
+    @Test func bufferedBlockDeviceSynchronizeReachesImage() throws {
+        try Self.withAttachedImage { attached in
+            let blockDisk = attached.attachment.wholeDisk
+            try #require(blockDisk.wholeMatch(of: /\/dev\/disk[0-9]+/) != nil, "unexpected device path '\(blockDisk)'")
+            let lba: UInt64 = 2048
+            let pattern = (0 ..< 8 * 512).map { UInt8(truncatingIfNeeded: $0 &* 7 &+ 1) }
+            let offset = Int(lba) * 512
+            do {
+                let device = try SDRawDevice(path: blockDisk, acknowledging: .dataLossRisk)
+                try device.writeSectors(lba: lba, pattern)
+                try device.synchronize()
+                #expect(Array(try fileBytes(attached.image)[offset ..< offset + pattern.count]) == pattern)
+            }
         }
     }
 }

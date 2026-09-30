@@ -65,13 +65,11 @@ public final class SDRawDevice: SDBlockDevice {
     /// The access mode of the descriptor (`O_RDONLY` or `O_RDWR`) decides `isReadOnly`; write-only descriptors are
     /// rejected because SlopDisk reads back what it writes.
     ///
-    /// - `closeOnDeinit: true`: the device takes ownership. It `flock`s the descriptor and closes it on deinit.
-    /// - `closeOnDeinit: false`: the descriptor is borrowed. It is neither locked nor closed; `flock` belongs to the
-    ///   open file description, so a lock taken here would outlive this object on the caller's descriptor.
-    ///   Locking is then the caller's job.
-    ///
-    /// If the initializer throws, the descriptor is left open and unlocked whatever `closeOnDeinit` says, and the
-    /// caller still owns it. (Closing it here as well would turn a caller's cleanup into a double close.)
+    /// - `closeOnDeinit: true`: the call hands the descriptor over. The device `flock`s it and closes it on deinit.
+    ///   If the initializer throws, the descriptor has already been closed; do not close it again.
+    /// - `closeOnDeinit: false`: the descriptor is borrowed. It is never locked or closed, not even when the
+    ///   initializer throws. `flock` belongs to the open file description, so a lock taken here would outlive this
+    ///   object on the caller's descriptor. Locking is then the caller's job.
     public convenience init(fileDescriptor fd: Int32, closeOnDeinit: Bool, acknowledging _: Acknowledgement) throws(SDError) {
         try self.init(setup: Self.adopt(fd: fd, ownsDescriptor: closeOnDeinit))
     }
@@ -127,11 +125,17 @@ public final class SDRawDevice: SDBlockDevice {
     }
 
     /// Flushes the device's write cache. Falls back to `fsync` where the cache ioctl is not supported.
+    /// Does nothing on a read-only device, which has nothing to flush.
     public func synchronize() throws(SDError) {
+        guard !isReadOnly else {
+            // On macOS, DKIOCSYNCHRONIZECACHE fails with EACCES on a read-only descriptor.
+            return
+        }
         #if canImport(Darwin)
         if isBlockDevice {
-            // /dev/diskN goes through the buffer cache, and DKIOCSYNCHRONIZECACHE only flushes the drive's cache.
-            // fsync writes the dirty buffers first. (On /dev/rdiskN there is no buffer cache.)
+            // /dev/diskN goes through the buffer cache, and DKIOCSYNCHRONIZECACHE does not write it back: bytes written
+            // there reached an attached image only after fsync (checked with hdiutil images). Without this, the
+            // backup-then-primary order of a commit would not hold on /dev/diskN. /dev/rdiskN has no buffer cache.
             guard fsync(fd) == 0 else {
                 throw .io(operation: "fsync", errno: errno)
             }
@@ -183,30 +187,40 @@ public final class SDRawDevice: SDBlockDevice {
         do throws(SDError) {
             return try setUp(fd: fd, path: path, mode: mode, ownsDescriptor: true)
         } catch {
+            // Closing also releases a lock taken by setUp.
             close(fd)
             throw error
         }
     }
 
     private static func adopt(fd: Int32, ownsDescriptor: Bool) throws(SDError) -> Setup {
-        let flags = fcntl(fd, F_GETFL)
-        guard flags >= 0 else {
-            throw .io(operation: "fcntl(F_GETFL)", errno: errno)
+        do throws(SDError) {
+            let flags = fcntl(fd, F_GETFL)
+            guard flags >= 0 else {
+                throw .io(operation: "fcntl(F_GETFL)", errno: errno)
+            }
+            let mode: SDOpenMode
+            switch flags & O_ACCMODE {
+            case O_RDONLY:
+                mode = .readOnly
+            case O_RDWR:
+                mode = .readWrite
+            default:
+                throw .invalidArgument("file descriptor \(fd) is write-only; SDRawDevice reads back what it writes")
+            }
+            return try setUp(fd: fd, path: nil, mode: mode, ownsDescriptor: ownsDescriptor)
+        } catch {
+            // The descriptor was handed over with the call, so a failed init still disposes of it.
+            // A borrowed one is left exactly as it was (setUp never locks it).
+            if ownsDescriptor {
+                close(fd)
+            }
+            throw error
         }
-        let mode: SDOpenMode
-        switch flags & O_ACCMODE {
-        case O_RDONLY:
-            mode = .readOnly
-        case O_RDWR:
-            mode = .readWrite
-        default:
-            throw .invalidArgument("file descriptor \(fd) is write-only; SDRawDevice reads back what it writes")
-        }
-        return try setUp(fd: fd, path: nil, mode: mode, ownsDescriptor: ownsDescriptor)
     }
 
     /// Checks the file type, locks an owned descriptor, and reads the geometry.
-    /// On failure the lock taken here is released again; closing is up to the caller.
+    /// On failure the descriptor is left open (and possibly locked); the caller closes an owned one.
     private static func setUp(fd: Int32, path: String?, mode: SDOpenMode, ownsDescriptor: Bool) throws(SDError) -> Setup {
         let name = path ?? "file descriptor \(fd)"
         var info = stat()
@@ -224,19 +238,12 @@ public final class SDRawDevice: SDBlockDevice {
         if ownsDescriptor {
             try lock(fd: fd, mode: mode, name: name)
         }
-        do throws(SDError) {
-            let (sectorSize, sectorCount) = try geometry(fd: fd, name: name)
-            return Setup(
-                fd: fd, path: path, ownsDescriptor: ownsDescriptor, isReadOnly: mode == .readOnly,
-                isBlockDevice: type == mode_t(S_IFBLK), sectorSize: sectorSize, sectorCount: sectorCount,
-                bounce: try allocateBounceBuffer(sectorSize: sectorSize)
-            )
-        } catch {
-            if ownsDescriptor {
-                flock(fd, LOCK_UN)
-            }
-            throw error
-        }
+        let (sectorSize, sectorCount) = try geometry(fd: fd, name: name)
+        return Setup(
+            fd: fd, path: path, ownsDescriptor: ownsDescriptor, isReadOnly: mode == .readOnly,
+            isBlockDevice: type == mode_t(S_IFBLK), sectorSize: sectorSize, sectorCount: sectorCount,
+            bounce: try allocateBounceBuffer(sectorSize: sectorSize)
+        )
     }
 
     private static func geometry(fd: Int32, name: String) throws(SDError) -> (sectorSize: Int, sectorCount: UInt64) {
