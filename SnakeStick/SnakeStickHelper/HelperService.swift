@@ -19,14 +19,30 @@ final class HelperService: @unchecked Sendable {
     }
 
     /// The version compiled into this executable (its embedded Info.plist), not the app's.
+    ///
+    /// The path comes from dyld: under launchd's `BundleProgram`, `argv[0]` did not lead to the
+    /// file (the version read as "?"), and `Bundle.main` is the enclosing app, not this tool.
     static let version: HelperVersion = {
-        let executable = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
+        var size: UInt32 = 0
+        _NSGetExecutablePath(nil, &size)
+        var buffer = [CChar](repeating: 0, count: Int(size) + 1)
+        guard _NSGetExecutablePath(&buffer, &size) == 0 else {
+            return HelperVersion(marketing: "?", build: "?")
+        }
+        let executable = URL(fileURLWithPath: String(cString: buffer)).resolvingSymlinksInPath()
         let info = CFBundleCopyInfoDictionaryForURL(executable as CFURL) as? [String: Any] ?? [:]
         return HelperVersion(
             marketing: info["CFBundleShortVersionString"] as? String ?? "?",
             build: info["CFBundleVersion"] as? String ?? "?"
         )
     }()
+
+    private var sessionCount = 0
+
+    /// Counts a connection from the app.
+    func sessionStarted() {
+        lock.withLock { sessionCount += 1 }
+    }
 
     /// Seconds since the last job ended or request arrived; 0 while a job runs.
     var idleSeconds: TimeInterval {
@@ -48,17 +64,30 @@ final class HelperService: @unchecked Sendable {
         }
     }
 
-    /// The app went away. A job it started is cancelled rather than left writing with nobody watching.
+    /// The app went away. A job it started is cancelled rather than left writing with nobody
+    /// watching. Without connections and a job, the daemon exits, so that the next connection
+    /// gets the executable currently in the app (after an update, or a rebuild while developing).
     func sessionEnded(_ session: XPCSession) {
-        let running: Task<Void, Never>? = lock.withLock {
-            guard jobSession === session else {
-                return nil
-            }
-            return job
+        let (running, idle): (Task<Void, Never>?, Bool) = lock.withLock {
+            sessionCount -= 1
+            return (jobSession === session ? job : nil, sessionCount <= 0 && job == nil)
         }
         if let running {
             logger.log("the app disconnected; cancelling its job")
             running.cancel()
+        }
+        if idle {
+            exitSoon()
+        }
+    }
+
+    private func exitSoon() {
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { [self] in
+            let stillIdle = lock.withLock { sessionCount <= 0 && job == nil }
+            if stillIdle {
+                logger.log("no connections and no job; exiting")
+                exit(EXIT_SUCCESS)
+            }
         }
     }
 
@@ -100,10 +129,14 @@ final class HelperService: @unchecked Sendable {
                 } catch {
                     logger.log("job ended: \(String(describing: error), privacy: .public)")
                 }
-                lock.withLock {
+                let idle = lock.withLock {
                     job = nil
                     jobSession = nil
                     lastActivity = Date()
+                    return sessionCount <= 0
+                }
+                if idle {
+                    exitSoon()
                 }
             }
             return .accepted

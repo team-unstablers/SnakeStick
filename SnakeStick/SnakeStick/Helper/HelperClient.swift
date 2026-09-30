@@ -67,13 +67,37 @@ final class HelperClient {
         SMAppService.openSystemSettingsLoginItems()
     }
 
-    /// Unregisters and registers again, so that launchd starts the daemon binary in this app
-    /// (after an update left an older daemon running).
-    func reregister() async -> Registration {
-        session?.cancel(reason: "re-registering")
-        session = nil
-        try? await service.unregister()
-        return ensureRegistered()
+    /// Makes sure a daemon of this app's version answers (§12).
+    ///
+    /// - A different version means an older daemon process is still running: the session is
+    ///   dropped (the daemon exits once it has no connections and no job) and the version is
+    ///   checked once more against the daemon launchd starts next.
+    /// - If the daemon cannot be looked up although it is registered and allowed, it is
+    ///   registered again once. Registering again on every mismatch booted out the daemon that
+    ///   had just started (seen on 2026-09-30), so that is only done here.
+    func connect(log: (String) -> Void) async throws -> Registration {
+        let registration = ensureRegistered()
+        guard registration == .enabled else {
+            return registration
+        }
+        do {
+            try await checkVersion()
+        } catch ClientError.versionMismatch(let helperVersion, let appVersion) {
+            log("helper version \(helperVersion) differs from the app's \(appVersion); reconnecting to a fresh helper")
+            dropSession()
+            try await Task.sleep(for: .seconds(1.5))
+            try await checkVersion()
+        } catch {
+            log("the helper could not be reached (\(error)); registering it again")
+            dropSession()
+            try? await service.unregister()
+            let again = ensureRegistered()
+            guard again == .enabled else {
+                return again
+            }
+            try await checkVersion()
+        }
+        return .enabled
     }
 
     /// Asks the daemon for its version and compares it with the app's.
@@ -101,10 +125,16 @@ final class HelperClient {
 
     // MARK: - Session
 
-    private func connect() throws -> XPCSession {
+    /// Identifies the current session, so that the end of one the client dropped itself is not
+    /// reported as a lost connection.
+    private var sessionID = UUID()
+
+    private func openSession() throws -> XPCSession {
         if let session {
             return session
         }
+        let id = UUID()
+        sessionID = id
         // Only the daemon signed by the same team, with its own identifier, is accepted.
         let session = try XPCSession(
             machService: HelperConstants.machServiceName,
@@ -114,15 +144,22 @@ final class HelperClient {
                 return nil
             },
             cancellationHandler: { [weak self] error in
-                Task { @MainActor in self?.sessionEnded(error) }
+                Task { @MainActor in self?.sessionEnded(error, id: id) }
             }
         )
         self.session = session
         return session
     }
 
+    private func dropSession() {
+        let dropped = session
+        session = nil
+        sessionID = UUID()
+        dropped?.cancel(reason: "reconnecting")
+    }
+
     private func send(_ request: HelperRequest) async throws -> HelperReply {
-        let session = try connect()
+        let session = try openSession()
         return try await withCheckedThrowingContinuation { continuation in
             do {
                 try session.send(request) { (result: Result<HelperReply, any Error>) in
@@ -140,7 +177,10 @@ final class HelperClient {
         }
     }
 
-    private func sessionEnded(_ error: XPCRichError) {
+    private func sessionEnded(_ error: XPCRichError, id: UUID) {
+        guard id == sessionID else {
+            return
+        }
         session = nil
         onDisconnect?(String(describing: error))
     }

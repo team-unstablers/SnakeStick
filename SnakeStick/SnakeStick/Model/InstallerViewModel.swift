@@ -172,24 +172,17 @@ final class InstallerViewModel {
     }
 
     private func start(_ request: InstallerRequest, disk: DiskCandidate) async {
-        switch helper.ensureRegistered() {
-        case .enabled:
-            break
-        case .requiresApproval:
-            stage = .idle
-            showsApprovalNotice = true
-            return
-        case .failed(let reason):
-            fail(helperError(String(localized: "The helper could not be reached: \(reason)")))
-            return
-        }
         do {
-            do {
-                try await helper.checkVersion()
-            } catch HelperClient.ClientError.versionMismatch(let helperVersion, let appVersion) {
-                append("helper version \(helperVersion) differs from the app's \(appVersion); registering it again")
-                _ = await helper.reregister()
-                try await helper.checkVersion()
+            switch try await helper.connect(log: { [weak self] in self?.append($0) }) {
+            case .enabled:
+                break
+            case .requiresApproval:
+                stage = .idle
+                showsApprovalNotice = true
+                return
+            case .failed(let reason):
+                fail(helperError(String(localized: "The helper could not be reached: \(reason)")))
+                return
             }
         } catch {
             fail(helperError(String(localized: "The helper could not be reached: \(String(describing: error))")))

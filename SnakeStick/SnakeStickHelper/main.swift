@@ -23,7 +23,8 @@ do {
         requirement: .isFromSameTeam(andMatchesSigningIdentifier: HelperConstants.appBundleIdentifier)
     ) { request in
         request.accept { session in
-            HelperSessionHandler(session: session, service: service)
+            service.sessionStarted()
+            return HelperSessionHandler(session: session, service: service)
         }
     }
 } catch {
