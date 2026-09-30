@@ -11,14 +11,11 @@ struct SourceItem {
     }
 
     let name: String
+    /// The path as built from the names readdir(3) returned, byte for byte.
     let path: String
     let kind: Kind
     let birthTime: timespec
     let modificationTime: timespec
-
-    var url: URL {
-        URL(fileURLWithPath: path)
-    }
 }
 
 enum SourceTree {
@@ -92,16 +89,6 @@ enum SourceTree {
             }
             if name != "." && name != ".." {
                 names.append(name)
-            }
-        }
-    }
-
-    /// Visits every item, parents before children.
-    static func forEach(_ items: [SourceItem], _ body: (SourceItem) throws -> Void) rethrows {
-        for item in items {
-            try body(item)
-            if case .directory(let children) = item.kind {
-                try forEach(children, body)
             }
         }
     }

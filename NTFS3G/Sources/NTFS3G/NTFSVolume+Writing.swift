@@ -137,44 +137,52 @@ extension NTFSVolume {
 /// A regular host file opened for reading.
 struct HostFile {
     let descriptor: Int32
-    let url: URL
+    let path: String
 
-    /// Opens `url`, following a symbolic link at the last component unless `followSymlinks`
-    /// is false. Throws `.unsupportedFileType` unless it is a regular file, and
-    /// `.posix(errno: EISDIR)` for a directory.
-    init(opening url: URL, followSymlinks: Bool = true) throws {
+    /// Opens `url`, following a symbolic link at the last component.
+    init(opening url: URL) throws {
+        try self.init(path: url.withUnsafeFileSystemRepresentation { String(cString: $0!) }, followSymlinks: true)
+    }
+
+    /// Opens `path` as given, byte for byte. (A URL's file system representation is decomposed
+    /// Unicode, which differs from the bytes readdir(3) returned on file systems that do not
+    /// ignore normalization.)
+    ///
+    /// Throws `.unsupportedFileType` unless it is a regular file, and `.posix(errno: EISDIR)`
+    /// for a directory. With `followSymlinks` false, a symbolic link is unsupported too.
+    init(path: String, followSymlinks: Bool) throws {
         // O_NONBLOCK keeps open(2) from waiting for a writer if the path is a FIFO.
         var flags = O_RDONLY | O_NONBLOCK | O_CLOEXEC
         if !followSymlinks {
             flags |= O_NOFOLLOW
         }
-        let descriptor = url.withUnsafeFileSystemRepresentation { open($0!, flags) }
+        let descriptor = open(path, flags)
         guard descriptor >= 0 else {
             let code = errno
             if code == ELOOP && !followSymlinks {
-                throw NTFS3GError.unsupportedFileType(url)
+                throw NTFS3GError.unsupportedFileType(URL(fileURLWithPath: path))
             }
-            throw NTFS3GError.posix(operation: "open", path: url.path, errno: code)
+            throw NTFS3GError.posix(operation: "open", path: path, errno: code)
         }
         var info = stat()
         guard fstat(descriptor, &info) == 0 else {
             let code = errno
             Darwin.close(descriptor)
-            throw NTFS3GError.posix(operation: "stat", path: url.path, errno: code)
+            throw NTFS3GError.posix(operation: "stat", path: path, errno: code)
         }
         switch info.st_mode & S_IFMT {
         case S_IFREG:
             break
         case S_IFDIR:
             Darwin.close(descriptor)
-            throw NTFS3GError.posix(operation: "open", path: url.path, errno: EISDIR)
+            throw NTFS3GError.posix(operation: "open", path: path, errno: EISDIR)
         default:
             Darwin.close(descriptor)
-            throw NTFS3GError.unsupportedFileType(url)
+            throw NTFS3GError.unsupportedFileType(URL(fileURLWithPath: path))
         }
         _ = fcntl(descriptor, F_SETFL, O_RDONLY)
         self.descriptor = descriptor
-        self.url = url
+        self.path = path
     }
 
     /// Reads up to `buffer.count` bytes. Returns 0 at end of file.
@@ -185,7 +193,7 @@ struct HostFile {
                 return count
             }
             if errno != EINTR {
-                throw NTFS3GError.posix(operation: "read", path: url.path, errno: errno)
+                throw NTFS3GError.posix(operation: "read", path: path, errno: errno)
             }
         }
     }

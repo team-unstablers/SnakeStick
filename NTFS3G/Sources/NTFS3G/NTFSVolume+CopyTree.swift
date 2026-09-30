@@ -69,7 +69,7 @@ extension NTFSVolume {
             let ticks = try item.ticks(path: path)
             switch item.kind {
             case .file:
-                let file = try HostFile(opening: item.url, followSymlinks: false)
+                let file = try HostFile(path: item.path, followSymlinks: false)
                 defer { file.close() }
                 try createItem(path, kind: .file, in: directory, times: ticks) { inode in
                     let base = copier.summary.bytes
