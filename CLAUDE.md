@@ -16,6 +16,7 @@ the repository.
 | `WIMLib/` | wimlib wrapper (submodule at `WIMLib/Vendor/wimlib`) | `WIMLib/README.md`, `WIMLib/CLAUDE.md` |
 | `Prompts/` | Task documents (`<agent-task>`) and their reports for the top-level work | — |
 | `docs/` | `DESIGN.md` (design and developer notes) and the images the READMEs use (`docs/images/`) | — |
+| `distutil/` | `build_dmg.sh`: the release DMG (archive, Developer ID export, notarization); output in `dist/` | `docs/DESIGN.md` |
 | `SnakeStick.xcworkspace` | Workspace that references the project and the four packages | — |
 
 `SnakeStickCore/Sources/SnakeStickCore/`: `Model.swift` (the public request, event and error types),

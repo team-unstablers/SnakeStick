@@ -201,6 +201,23 @@ the whole pipeline against sparse images attached with `hdiutil attach -nomount`
 results back. Device paths come only from the output of the `hdiutil attach` a test just ran. No
 automated test writes to a real disk.
 
+# RELEASE
+
+```sh
+distutil/build_dmg.sh                  # dist/snakestick-signed-<version>-<commit>-RELEASE.dmg
+distutil/build_dmg.sh --skip-notarize  # signing only
+```
+
+The script archives the `SnakeStick` scheme (Release, into its own DerivedData under `dist/build/`),
+exports it with the Developer ID certificate, notarizes and staples the app and then the DMG. It
+needs `create-dmg` (Homebrew), the Developer ID Application certificate of team XHA76UVA95 and the
+`notarytool` keychain profile `tu-noctiluca-notarycred`. Before submitting anything it checks the
+exported bundle: the app and the daemon are both signed with that Developer ID under their own
+identifiers with the hardened runtime (each accepts the other only from the same team), the daemon
+reports the app's version (set `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` on both targets),
+the launchd plist points at the daemon, and the bundled UEFI:NTFS files match the checked-in ones.
+A build from a working tree with changes is tagged `-dirty`.
+
 # LICENSE
 
 GPL-3.0-or-later. The full text is in `COPYING`.

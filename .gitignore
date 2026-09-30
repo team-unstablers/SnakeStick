@@ -9,6 +9,9 @@ build/
 # Swift Package Manager
 .build/
 
+# Release builds (distutil/build_dmg.sh)
+/dist/
+
 # Windows ISOs, disk images and split WIM parts (test inputs and build outputs)
 *.iso
 *.img
