@@ -63,7 +63,7 @@ final class HelperClient {
         }
     }
 
-    func openLoginItemsSettings() {
+    static func openLoginItems() {
         SMAppService.openSystemSettingsLoginItems()
     }
 

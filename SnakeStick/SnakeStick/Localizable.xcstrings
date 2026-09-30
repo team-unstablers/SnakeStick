@@ -1,0 +1,442 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ external disk" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "%@ 외장 디스크" } }
+      }
+    },
+    "%@ · %@ · %@" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "%@ · %@ · %@" } }
+      }
+    },
+    "%@ — %@ (%@)" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@)" } }
+      }
+    },
+    "%@ — %@ (%@) · Not enough space" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@) · 공간 부족" } }
+      }
+    },
+    "%lld partitions" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld partition" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld partitions" } }
+            }
+          }
+        },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "파티션 %lld개" } }
+      }
+    },
+    "About %lld min left" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "약 %lld분 남음" } }
+      }
+    },
+    "After writing, reads the NTFS volume on the stick back and compares it with the ISO's file tree." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "기록을 마친 뒤 스틱의 NTFS 볼륨을 다시 읽어 ISO의 파일 트리와 비교합니다." } }
+      }
+    },
+    "All partitions and data on %@(%@) will be erased and it will be made into a Windows installation disk. This cannot be undone. If you continue, you will be asked for an administrator password once." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "%@(%@)의 모든 파티션과 데이터가 지워지고 Windows 설치 디스크로 다시 만들어집니다. 되돌릴 수 없습니다. 계속하면 관리자 암호를 한 번 묻습니다." } }
+      }
+    },
+    "Allow the SnakeStick helper" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick 도우미를 허용하세요" } }
+      }
+    },
+    "An I/O error occurred (%@). The stick may have been removed or damaged." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "입출력 오류가 났습니다 (%@). 스틱이 분리되었거나 손상되었을 수 있습니다." } }
+      }
+    },
+    "An I/O error occurred while writing %@ (%@). The stick may have been removed or damaged." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "%@을 쓰는 중 입출력 오류가 났습니다 (%@). 스틱이 분리되었거나 손상되었을 수 있습니다." } }
+      }
+    },
+    "An unexpected error occurred. See the log for details." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "예상하지 못한 오류가 났습니다. 자세한 내용은 로그를 보세요." } }
+      }
+    },
+    "Available once you choose a Windows 11 25H2 or later ISO." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "Windows 11 25H2 이상 ISO를 고르면 쓸 수 있습니다." } }
+      }
+    },
+    "Boot partition" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "부트 파티션" } }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "취소" } }
+      }
+    },
+    "Check partitions" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "파티션 확인" } }
+      }
+    },
+    "Checking the partitions" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "파티션을 확인하고 있습니다" } }
+      }
+    },
+    "Choose an ISO file" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO 파일을 선택하세요" } }
+      }
+    },
+    "Choose an ISO file and a target disk" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO 파일과 대상 디스크를 선택하세요" } }
+      }
+    },
+    "Choose…" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "선택…" } }
+      }
+    },
+    "Copy files" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "파일 복사" } }
+      }
+    },
+    "Copying files" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "파일을 복사하고 있습니다" } }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "완료" } }
+      }
+    },
+    "Eject" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "추출" } }
+      }
+    },
+    "Erase and Write" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "지우고 쓰기" } }
+      }
+    },
+    "Erase “%@”?" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "“%@”을 지울까요?" } }
+      }
+    },
+    "External Disks" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "외장 디스크" } }
+      }
+    },
+    "Failed at step %lld/8: %@" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "단계 %lld/8에서 실패했습니다: %@" } }
+      }
+    },
+    "Finished" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "완료했습니다" } }
+      }
+    },
+    "Finished — the written data matches the ISO" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "완료했습니다 — 기록한 내용이 ISO와 일치합니다" } }
+      }
+    },
+    "Formatting the NTFS partition" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "NTFS 파티션을 포맷하고 있습니다" } }
+      }
+    },
+    "If you stop now, “%@” will be left unbootable. To use it, you have to start over." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "지금 중단하면 “%@”은 부팅할 수 없는 상태로 남습니다. 다시 쓰려면 처음부터 시작해야 합니다." } }
+      }
+    },
+    "Internal disks and the startup disk are not shown" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "내장 디스크와 시동 디스크는 표시하지 않습니다" } }
+      }
+    },
+    "Keep Writing" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "계속 쓰기" } }
+      }
+    },
+    "Log" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "로그" } }
+      }
+    },
+    "NTFS format" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "NTFS 포맷" } }
+      }
+    },
+    "Needed to boot with Secure Boot on PCs that have revoked the 2011 certificate. Only for Windows 11 25H2 or later ISOs." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "2011 인증서를 폐기한 PC에서 Secure Boot를 켠 채로 부팅할 때 필요합니다. Windows 11 25H2 이상 ISO에서만 쓸 수 있습니다." } }
+      }
+    },
+    "Needs %@ / %@" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "필요 %@ / %@" } }
+      }
+    },
+    "No log yet." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "아직 로그가 없습니다." } }
+      }
+    },
+    "Only external and removable disks are shown" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "외장·이동식 디스크만 표시됩니다" } }
+      }
+    },
+    "Open ISO" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO 열기" } }
+      }
+    },
+    "Open System Settings" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "시스템 설정 열기" } }
+      }
+    },
+    "Opening the ISO" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO를 열고 있습니다" } }
+      }
+    },
+    "Options" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "옵션" } }
+      }
+    },
+    "Partition table" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "파티션 테이블" } }
+      }
+    },
+    "Prepare target" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "대상 준비" } }
+      }
+    },
+    "Preparing the UEFI:NTFS boot partition" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "UEFI:NTFS 부트 파티션을 준비하고 있습니다" } }
+      }
+    },
+    "Preparing the target disk" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "대상 디스크를 준비하고 있습니다" } }
+      }
+    },
+    "Reading the ISO…" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO를 읽고 있습니다…" } }
+      }
+    },
+    "Ready to write" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "쓰기 준비가 되었습니다" } }
+      }
+    },
+    "Select a Disk" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "디스크 선택" } }
+      }
+    },
+    "Show Log…" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "로그 보기…" } }
+      }
+    },
+    "SnakeStick" : {
+      "shouldTranslate" : false
+    },
+    "SnakeStick wants to erase “%@” (%@) and make it a Windows installation disk." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick이 “%@”(%@)을 지우고 Windows 설치 디스크로 만들려고 합니다." } }
+      }
+    },
+    "SnakeStick writes disks with a helper that runs as root. Allow it in System Settings > General > Login Items, then try again." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick은 root로 실행되는 도우미로 디스크를 씁니다. 시스템 설정 > 일반 > 로그인 항목에서 허용한 뒤 다시 시도하세요." } }
+      }
+    },
+    "Source ISO" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "원본 ISO" } }
+      }
+    },
+    "Start Writing" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "쓰기 시작" } }
+      }
+    },
+    "Step %lld/8: %@" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "단계 %lld/8: %@" } }
+      }
+    },
+    "Step %lld/8: %@ — %@" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "단계 %lld/8: %@ — %@" } }
+      }
+    },
+    "Stop" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "중단" } }
+      }
+    },
+    "Stop writing?" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "쓰기를 중단할까요?" } }
+      }
+    },
+    "Stopped — the stick cannot be booted" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "중단했습니다 — 스틱은 부팅할 수 없는 상태입니다" } }
+      }
+    },
+    "Target Disk" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "대상 디스크" } }
+      }
+    },
+    "The ISO cannot be used: it is not a Windows installation ISO, or it lacks what the chosen options need." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 ISO를 쓸 수 없습니다. Windows 설치 ISO가 아니거나 고른 옵션에 필요한 파일이 없습니다." } }
+      }
+    },
+    "The ISO file cannot be read." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO 파일을 읽을 수 없습니다." } }
+      }
+    },
+    "The connection to the helper was lost." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "도우미와의 연결이 끊어졌습니다." } }
+      }
+    },
+    "The helper could not be reached: %@" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "도우미에 연결할 수 없습니다: %@" } }
+      }
+    },
+    "The helper refused the write: %@" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "도우미가 쓰기를 거부했습니다: %@" } }
+      }
+    },
+    "The stick cannot be booted now." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "스틱은 지금 부팅할 수 없는 상태입니다." } }
+      }
+    },
+    "The stick was not changed." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "스틱은 바뀌지 않았습니다." } }
+      }
+    },
+    "The target disk cannot be written: it is gone, internal, or the startup disk." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "대상 디스크에 쓸 수 없습니다. 분리되었거나 내장 디스크 또는 시동 디스크입니다." } }
+      }
+    },
+    "The target disk does not have enough space for this ISO." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "대상 디스크의 공간이 이 ISO에 비해 부족합니다." } }
+      }
+    },
+    "The volume label cannot be used on NTFS: at most 32 characters, none of \"*/:<>?\\|, and no space or dot at the end." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 볼륨 레이블은 NTFS에서 쓸 수 없습니다. 32자 이하여야 하고, \"*/:<>?\\|를 포함할 수 없으며, 공백이나 마침표로 끝날 수 없습니다." } }
+      }
+    },
+    "This is not a Windows installation ISO." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "Windows 설치 ISO가 아닙니다." } }
+      }
+    },
+    "Try Again" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "다시 시도" } }
+      }
+    },
+    "Use ISO label" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO 레이블 사용" } }
+      }
+    },
+    "Use Windows UEFI CA 2023 signed boot loaders" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "Windows UEFI CA 2023 서명 부트로더 사용" } }
+      }
+    },
+    "Verify" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "검증" } }
+      }
+    },
+    "Verify after writing" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "쓰기 후 내용 검증" } }
+      }
+    },
+    "Verifying the written data" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "기록한 내용을 검증하고 있습니다" } }
+      }
+    },
+    "Volume Label" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "볼륨 레이블" } }
+      }
+    },
+    "Waiting for authorization…" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "인증을 기다리고 있습니다…" } }
+      }
+    },
+    "What was written differs from the ISO: %@." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "기록한 내용이 ISO와 다릅니다: %@." } }
+      }
+    },
+    "Windows 10 or 11 installation ISO. You can also drop it on the window." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "Windows 10·11 설치 ISO. 창에 끌어다 놓아도 됩니다." } }
+      }
+    },
+    "Writing the partition table" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "파티션 테이블을 쓰고 있습니다" } }
+      }
+    },
+    "“%@” could not be ejected: %@" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "“%@”을 추출할 수 없습니다: %@" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}
