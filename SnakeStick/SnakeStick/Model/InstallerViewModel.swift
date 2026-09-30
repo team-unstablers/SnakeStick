@@ -57,8 +57,6 @@ final class InstallerViewModel {
     @ObservationIgnored private let logger = Logger(subsystem: HelperConstants.appBundleIdentifier, category: "installer")
     /// The disk the current or last job wrote to, for the eject button and the messages.
     @ObservationIgnored private var jobDisk: DiskCandidate?
-    /// The ISO the app mounted for the running job; unmounted when the job ends.
-    @ObservationIgnored private var jobISO: MountedISO?
 
     init() {
         helper.onEvent = { [weak self] event in self?.handle(event) }
@@ -174,7 +172,6 @@ final class InstallerViewModel {
     }
 
     private func start(_ request: InstallerRequest, disk: DiskCandidate) async {
-        var request = request
         do {
             switch try await helper.connect(log: { [weak self] in self?.append($0) }) {
             case .enabled:
@@ -189,19 +186,6 @@ final class InstallerViewModel {
             }
         } catch {
             fail(helperError(String(localized: "The helper could not be reached: \(String(describing: error))")))
-            return
-        }
-
-        // The helper cannot open files in ~/Downloads and the like (TCC keeps launchd daemons
-        // out, even as root), so the app mounts the ISO with the user's access and the helper
-        // reads only the mount.
-        do {
-            let mounted = try await MountedISO.mount(request.isoPath)
-            jobISO = mounted
-            request.preparedISO = mounted.prepared
-        } catch {
-            append("mounting \(request.isoPath) failed: \(error)")
-            fail(error as? InstallerError ?? helperError(String(describing: error)))
             return
         }
 
@@ -225,7 +209,6 @@ final class InstallerViewModel {
                 }
             case .rejected(let reason) where reason == HelperConstants.authorizationCancelled:
                 stage = .idle
-                releaseJobISO()
             case .rejected(let reason):
                 fail(helperError(String(localized: "The helper refused the write: \(reason)")))
             default:
@@ -298,10 +281,8 @@ final class InstallerViewModel {
             append(line)
         case .finished(let result):
             stage = .finished(result)
-            releaseJobISO()
             refreshDisks()
         case .failed(let error):
-            releaseJobISO()
             if error.kind == .cancelled {
                 stoppedByUser = true
                 stage = .idle
@@ -322,16 +303,6 @@ final class InstallerViewModel {
     private func fail(_ error: InstallerError) {
         append("error: \(error)")
         stage = .failed(error)
-        releaseJobISO()
-    }
-
-    /// Unmounts the ISO mounted for the job, once the helper no longer reads it.
-    private func releaseJobISO() {
-        guard let mounted = jobISO else {
-            return
-        }
-        jobISO = nil
-        Task { await mounted.unmount() }
     }
 
     /// An error raised by the app itself; its message is already localized (see `UIText.errorBody`).

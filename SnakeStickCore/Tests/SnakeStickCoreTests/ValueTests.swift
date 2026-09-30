@@ -74,8 +74,7 @@ struct ModelTests {
         let request = InstallerRequest(
             isoPath: "/tmp/win.iso",
             target: .image(path: "/tmp/out.img", size: 8_000_000_000),
-            options: .init(volumeLabel: "WIN", verifyAfterWrite: false, useCA2023Bootloaders: true),
-            preparedISO: .init(mountPoint: "/private/tmp/x/iso", volumeLabel: "CCCOMA", fileSize: 7_000_000_000)
+            options: .init(volumeLabel: "WIN", verifyAfterWrite: false, useCA2023Bootloaders: true)
         )
         #expect(try JSONDecoder().decode(InstallerRequest.self, from: JSONEncoder().encode(request)) == request)
     }

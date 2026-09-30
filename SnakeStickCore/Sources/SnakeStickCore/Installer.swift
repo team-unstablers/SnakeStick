@@ -97,11 +97,7 @@ final class Pipeline {
 
         // 1. Open the ISO.
         reporter.start(.openISO)
-        let iso = if let prepared = request.preparedISO {
-            try ISOSession(path: request.isoPath, prepared: prepared, tools: tools)
-        } else {
-            try ISOSession(path: request.isoPath, workDirectory: work, tools: tools)
-        }
+        let iso = try ISOSession(path: request.isoPath, workDirectory: work, tools: tools)
         self.iso = iso
         let info = iso.info
         let label = VolumeLabel.resolve(requested: options.volumeLabel, isoLabel: info.volumeLabel)

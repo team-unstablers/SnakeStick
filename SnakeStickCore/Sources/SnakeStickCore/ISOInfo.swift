@@ -94,14 +94,35 @@ final class ISOSession {
     let bootWIM: URL
     /// The image index read for ``info`` (2, the Setup image, or the last one).
     let bootWIMImage: Int
-    /// The attached image, when this session attached it (and so detaches it).
-    private let device: String?
+    private let device: String
     private let tools: DiskTools
-    private var attached: Bool
+    private var attached = true
 
-    /// Reads the file's label and size and attaches it.
-    convenience init(path: String, workDirectory: WorkDirectory, tools: DiskTools) throws {
-        let (fileSize, label) = try ISOImage.readFile(path: path)
+    init(path: String, workDirectory: WorkDirectory, tools: DiskTools) throws {
+        self.path = path
+        self.tools = tools
+        let fileSize: UInt64
+        let label: String
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: path)
+            guard (attributes[.type] as? FileAttributeType) == .typeRegular else {
+                throw InstallerError(phase: .openISO, kind: .invalidISO, message: "\(path) is not a Windows ISO: it is not a file.", path: path)
+            }
+            fileSize = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
+            label = try ISOImage.readVolumeLabel(path: path) ?? ""
+        } catch let error as InstallerError {
+            throw error
+        } catch {
+            let code = (error as NSError).underlyingErrors.first.map { ($0 as NSError).code }
+                ?? ((error as NSError).domain == NSPOSIXErrorDomain ? (error as NSError).code : nil)
+            let missing = code == Int(ENOENT) || (error as NSError).code == NSFileReadNoSuchFileError
+            throw InstallerError(
+                phase: .openISO, kind: missing ? .isoMissing : .io,
+                message: missing ? "\(path) does not exist." : "\(path) cannot be read.",
+                underlying: "\(error)", path: path, errno: code.map { Int32($0) }
+            )
+        }
+
         let mountPoint = workDirectory.url.appendingPathComponent("iso")
         try FileManager.default.createDirectory(at: mountPoint, withIntermediateDirectories: true)
         let attachment: DiskTools.Attachment
@@ -113,40 +134,8 @@ final class ISOSession {
                 message: "\(path) is not a Windows ISO: it could not be mounted.", underlying: "\(error)", path: path
             )
         }
-        do {
-            try self.init(
-                path: path, mountPoint: URL(fileURLWithPath: attachment.mountPoint ?? mountPoint.path, isDirectory: true),
-                label: label, fileSize: fileSize, device: attachment.device, tools: tools
-            )
-        } catch {
-            tools.detach(attachment.device)
-            throw error
-        }
-    }
-
-    /// Uses an ISO the caller mounted; `path` is only named in messages and never opened.
-    convenience init(path: String, prepared: PreparedISO, tools: DiskTools) throws {
-        var isDirectory: ObjCBool = false
-        guard prepared.mountPoint.hasPrefix("/"),
-              FileManager.default.fileExists(atPath: prepared.mountPoint, isDirectory: &isDirectory), isDirectory.boolValue
-        else {
-            throw InstallerError(
-                phase: .openISO, kind: .invalidISO,
-                message: "The mounted ISO \(prepared.mountPoint) is not there.", path: prepared.mountPoint
-            )
-        }
-        try self.init(
-            path: path, mountPoint: URL(fileURLWithPath: prepared.mountPoint, isDirectory: true),
-            label: prepared.volumeLabel, fileSize: prepared.fileSize, device: nil, tools: tools
-        )
-    }
-
-    private init(path: String, mountPoint: URL, label: String, fileSize: UInt64, device: String?, tools: DiskTools) throws {
-        self.path = path
-        self.tools = tools
-        self.device = device
-        attached = device != nil
-        self.mountPoint = mountPoint
+        device = attachment.device
+        self.mountPoint = URL(fileURLWithPath: attachment.mountPoint ?? mountPoint.path, isDirectory: true)
 
         do {
             guard let bootWIM = ISOImage.findItem(["sources", "boot.wim"], under: self.mountPoint) else {
@@ -200,12 +189,15 @@ final class ISOSession {
                 supportsCA2023: build >= ISOInfo.ca2023MinimumBuild,
                 requiredBytes: ISOInfo.requiredBytes(forVolumeEstimate: UInt64(estimate))
             )
+        } catch {
+            tools.detach(attachment.device)
+            throw error
         }
     }
 
-    /// Detaches the ISO if this session attached it. Safe to call more than once.
+    /// Detaches the ISO. Safe to call more than once.
     func close() {
-        guard attached, let device else {
+        guard attached else {
             return
         }
         attached = false
@@ -217,83 +209,9 @@ final class ISOSession {
     }
 }
 
-/// An ISO mounted by the app for the root helper (decision 19, P3).
-///
-/// The helper is a launchd daemon; TCC keeps it out of `~/Downloads`, `~/Desktop` and
-/// `~/Documents` even as root, and it cannot ask the user for access. The app can: it mounts
-/// the ISO read-only with the user's access and passes ``prepared`` in
-/// ``InstallerRequest/preparedISO``, so that the helper never opens the file itself. The app
-/// unmounts it when the job has ended.
-public final class MountedISO: Sendable {
-    public let prepared: PreparedISO
-    private let device: String
-    private let work: WorkDirectory
-
-    private init(prepared: PreparedISO, device: String, work: WorkDirectory) {
-        self.prepared = prepared
-        self.device = device
-        self.work = work
-    }
-
-    /// Reads the label and size of the ISO at `path` and mounts it read-only under
-    /// `/tmp/snakestick-<uid>-<UUID>/iso`.
-    public static func mount(_ path: String) async throws -> MountedISO {
-        try await Blocking.run {
-            let (fileSize, label) = try ISOImage.readFile(path: path)
-            let work = try WorkDirectory(log: { _ in })
-            let tools = DiskTools(log: { _ in })
-            do {
-                let mountPoint = try work.subdirectory("iso")
-                let attachment = try tools.attachISO(path, at: mountPoint.path)
-                return MountedISO(
-                    prepared: PreparedISO(mountPoint: attachment.mountPoint ?? mountPoint.path, volumeLabel: label, fileSize: fileSize),
-                    device: attachment.device, work: work
-                )
-            } catch {
-                work.remove()
-                throw InstallerError(
-                    phase: .openISO, kind: .invalidISO,
-                    message: "\(path) is not a Windows ISO: it could not be mounted.", underlying: "\(error)", path: path
-                )
-            }
-        }
-    }
-
-    /// Detaches the ISO and removes the mount point's directory.
-    public func unmount() async {
-        _ = try? await Blocking.run { [device, work] in
-            DiskTools(log: { _ in }).detach(device)
-            work.remove()
-        }
-    }
-}
-
 /// Reading an ISO file directly, without mounting it.
 enum ISOImage {
     static let sectorSize = 2048
-
-    /// The size of the regular file at `path` and its ISO 9660 label (empty if none).
-    static func readFile(path: String) throws -> (fileSize: UInt64, label: String) {
-        do {
-            let attributes = try FileManager.default.attributesOfItem(atPath: path)
-            guard (attributes[.type] as? FileAttributeType) == .typeRegular else {
-                throw InstallerError(phase: .openISO, kind: .invalidISO, message: "\(path) is not a Windows ISO: it is not a file.", path: path)
-            }
-            let fileSize = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
-            return (fileSize, try readVolumeLabel(path: path) ?? "")
-        } catch let error as InstallerError {
-            throw error
-        } catch {
-            let code = (error as NSError).underlyingErrors.first.map { ($0 as NSError).code }
-                ?? ((error as NSError).domain == NSPOSIXErrorDomain ? (error as NSError).code : nil)
-            let missing = code == Int(ENOENT) || (error as NSError).code == NSFileReadNoSuchFileError
-            throw InstallerError(
-                phase: .openISO, kind: missing ? .isoMissing : .io,
-                message: missing ? "\(path) does not exist." : "\(path) cannot be read.",
-                underlying: "\(error)", path: path, errno: code.map { Int32($0) }
-            )
-        }
-    }
 
     /// The volume identifier of the ISO 9660 primary volume descriptor, or `nil` if the file has
     /// none. Reads the descriptors from sector 16 on, stopping at the terminator.
