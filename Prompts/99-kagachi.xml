@@ -1,0 +1,131 @@
+<agent-task mode="execute">
+    <objective>
+        # Generate a bust-up portrait for the SnakeStick app icon
+
+        ## Background
+        - SnakeStick is a macOS app that creates Windows USB installers. Its mascot is a snake-kin woman
+          holding an apple: the serpent of Eden offering the forbidden fruit (the apple also nods to the Mac).
+        - The image will be composited onto a background color chosen later and cropped into an app icon.
+          Only the character is needed.
+
+        ## Scope
+        - One image: a bust-up portrait (head to upper chest) of the character described in <specs>.
+        - Portrait orientation, 2:3, 1024 x 1536 px, PNG with a fully transparent background.
+
+        ## Out of scope
+        - Background, scenery, frame, icon shape (squircle), text, logo. The icon is assembled separately.
+    </objective>
+
+    <decisions>
+        Settled with the client. Do not reinterpret or "improve" these.
+        - D1. Japanese anime / subculture character. A snake-kin woman, apparent age late 30s.
+        - D2. Snake traits are moderate: slit pupils, patches of scales, one fang. No cobra hood, no visible tail.
+        - D3. The outfit reads as a villainous boss: black, elegant, high-collared.
+        - D4. Black hair with a crimson inner color (hidden underlayer), modeled on the red-bellied black snake.
+        - D5. Maturity cues: a beauty mark under one eye, dark lipstick, a sharp jawline.
+        - D6. Expression: confident, slightly wicked, barely smiling. Closed-lip smirk with one fang tip showing.
+        - D7. The apple is whole and unbitten, with no leaf. A bitten apple evokes the Apple logo.
+    </decisions>
+
+    <specs>
+        §1 Face and age (D1, D5)
+        - A woman in her late 30s. Mature anime proportions: a longer face, defined cheekbones, a sharp jawline,
+          narrower almond-shaped eyes. No childlike or teenage features, no large round eyes.
+        - A small beauty mark (tear mole) just below the outer corner of one eye.
+        - Dark burgundy / deep crimson lipstick. Sharp winged eyeliner, long lashes.
+
+        §2 Eyes and expression (D6)
+        - Crimson red irises with vertical slit pupils, clearly visible. Heavy-lidded, half-closed eyes.
+        - Chin slightly lowered, looking straight at the viewer from under her lashes.
+        - Asymmetric closed-lip smirk: one mouth corner raised. The tip of one small fang peeks over the lower lip
+          at the raised corner. Not a grin, not laughing, mouth closed, no tongue.
+        - Mood: amused, self-assured, quietly tempting.
+
+        §3 Hair (D4)
+        - Long, straight, glossy black hair, side-parted, falling past the shoulders. Ears hidden by hair.
+        - Crimson inner color: the underside layer is vivid crimson, visible where the hair parts, at the nape,
+          and where locks flip over the shoulders. The outer surface stays black.
+        - Highlights on the black hair are neutral or warm. No blue highlights.
+
+        §4 Snake traits (D2)
+        - Small patches of glossy black scales with faint crimson edges: at the outer corners of the eyes and
+          temples, along one cheekbone, down the side of the neck, and on the back of the visible hand.
+        - Scales are accents, not a full covering. Skin is fair.
+        - Dark, slightly pointed nails (black or deep crimson).
+
+        §5 Outfit (D3)
+        - A black, long-sleeved, high-collared fitted dress with a subtle snakeskin texture in the fabric.
+        - One small crimson gemstone brooch at the collar. No other visible jewelry.
+        - Cropped at the upper chest. Elegant and restrained.
+
+        §6 Apple and hand (D7)
+        - One glossy, vivid red whole apple with a short brown stem and no leaf.
+        - Held in one hand, raised beside her face at cheek-to-chin height, slightly extended toward the viewer
+          as an offering.
+        - Exactly one hand visible, five slender fingers, anatomically correct. The hand does not cover the face.
+
+        §7 Composition (see code#layout)
+        - 3/4 view: body turned slightly, face toward the viewer.
+        - The face and the apple both sit inside the top 1024 x 1024 px region, so a square crop yields a
+          complete icon.
+        - Margin above the hair and on both sides. The bottom edge cuts the body at the upper chest.
+
+        §8 Art style
+        - Modern Japanese anime illustration. Cel shading with 2-3 tone steps, clean, confident line art.
+        - Must stay legible at 64 px: strong silhouette, clear value separation between face, hair and apple,
+          no busy fine detail.
+        - Limited palette: black, crimson, fair skin, small white highlights. Approximate anchors:
+          black #0E0B10, crimson #B3122E, apple red #D7263D.
+
+        §9 Output
+        - 1024 x 1536 px, portrait 2:3, PNG with a real alpha channel.
+        - Fully transparent (alpha 0) everywhere outside the character.
+    </specs>
+
+    <code id="layout" name="composition, 1024 x 1536, transparent" lang="text/plain">
+        +--------------------------------+  y = 0
+        |           top margin           |
+        |         .------------.         |
+        |        /  black hair  \        |
+        |       |  slit eyes     |  (O)  |  <- apple at cheek height,
+        |       |  tear mole     |  hand |     offered toward the viewer
+        |        \  smirk+fang  /        |
+        |   hair  \  sharp jaw /  hair   |
+        |   (crimson underside visible)  |
+        |================================|  y = 1024: face and apple must be above this line
+        |       high black collar        |
+        |    shoulders / upper chest     |
+        +--------------------------------+  y = 1536, body cropped by the edge
+    </code>
+
+    <constraints>
+        Failures that look fine at a glance:
+        - Fake transparency: a painted grey/white checkerboard, or a white or grey backdrop instead of real alpha.
+        - Drop shadow, glow, rim-light halo, particles, smoke or vignette outside the silhouette.
+          Anything semi-transparent around the figure breaks compositing.
+        - Age drift. Anime women default to their early 20s. Keep every §1 maturity cue visible.
+        - A bitten apple, an apple with a leaf, or an apple silhouette that resembles a logo.
+        - Blue highlights on the black hair.
+        - Fine flyaway strands at the silhouette edge. They become fringe on alpha. Keep hair outlines clean.
+        - Extra fingers, a second hand, or an apple floating without being held.
+        - Any text, signature, watermark or UI element.
+    </constraints>
+
+    <acceptance>
+        Check each item before returning:
+        1. 1024 x 1536, portrait. The background is true alpha, with no checkerboard pixels.
+        2. The face and the apple are both within the top 1024 x 1024 region.
+        3. Slit pupils, crimson irises, beauty mark, dark lipstick and one fang tip are all visible.
+        4. The crimson inner color shows in the hair. The outer hair is black.
+        5. One whole red apple, no bite, no leaf, held by one correctly drawn hand.
+        6. She reads as a woman in her late 30s, not a teenager.
+        7. Downscaled to 64 px, the face, the red eyes and the apple are still recognizable.
+    </acceptance>
+
+    <closing>
+        - Return one image only.
+        - If this environment cannot output a real alpha channel, say so explicitly and use a flat, solid
+          #00FF00 background instead. Do not simulate transparency.
+        - If any acceptance item was not met, list it in one line after the image. Do not claim it was met.
+    </closing>
+</agent-task>
