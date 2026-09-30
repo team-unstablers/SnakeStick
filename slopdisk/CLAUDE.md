@@ -6,16 +6,19 @@ Guidance for coding agents working in this repository.
 
 SlopDisk is a Swift package that reads and writes GPT partition tables. It is the partition-table layer of **SnakeStick**, a macOS tool for making bootable USB sticks; the Xcode workspace lives one directory up (`../SnakeStick.xcworkspace`, which references this directory as `group:slopdisk`, so do not rename the `slopdisk/` directory itself).
 
-Status: stage 10 (GPT core, memory/file backends, `sdinspect`) is implemented; see `Prompts/10-implementation.report.md`. Stage 20 (raw devices) is not started. See `README.md` for the public API and `Prompts/` for the task documents.
+Status: stage 10 (GPT core, memory/file backends, `sdinspect`) and stage 20 (`SDRawDevice`, `sdinspect` on `/dev/` paths) are implemented; see `Prompts/10-implementation.report.md` and `Prompts/20-raw-device.report.md`. See `README.md` for the public API and `Prompts/` for the task documents.
 
 ## Safety rules (non-negotiable)
 
 - **Never open, read-write, or pass to any SlopDisk API a real disk device.** Not `/dev/disk0`, not "the USB stick that's probably disk4", nothing guessed or hard-coded.
 - Tests may only operate on image files the test itself created in a unique temporary directory.
 - The only permitted device paths are ones parsed from the output of an `hdiutil attach` that the same test just ran on such an image. Validate against `^/dev/r?disk[0-9]+$` and always `defer` a `hdiutil detach`.
+  - `/dev/rdiskN` is derived from that `/dev/diskN`. A slice that appears only after SlopDisk wrote the table (`/dev/rdiskNsK`) is derived the same way and used only once `hdiutil info` lists it under the test's own image (`RawDeviceAttachTests.AttachedImage.rawSlice`). Validate against `^/dev/r?disk[0-9]+s[0-9]+$`.
 - Always attach with `-nomount -imagekey diskimage-class=CRawDiskImage`.
 - Tests that call `hdiutil attach` run only when `SLOPDISK_TEST_HDIUTIL_ATTACH=1`.
-- `sdinspect` must stay read-only. It opens everything with `.readOnly`; no write path may be reachable from that target.
+- Close every descriptor on an attached device (release the `SDDisk` / `SDRawDevice`) before `hdiutil detach`.
+- `sdinspect` must stay read-only. It opens image files with `.readOnly` and `/dev/` paths with `SDRawDevice(readOnlyPath:)`; no write path may be reachable from that target. `SDInspectTests.sourceUsesNoWritePath` greps its sources for write APIs, including `dataLossRisk`.
+- Every read-write `SDRawDevice` open takes `acknowledging: .dataLossRisk`. Do not add a public read-write path without it (`grep -rn dataLossRisk Sources/` must show only the definition and its call sites).
 
 ## Design decisions
 
@@ -32,11 +35,13 @@ The ones most likely to matter day to day:
 - FAT32 and other file systems are out of scope (callers use `hdiutil attach -nomount` + `newfs_msdos`).
 - macOS 13+ and Linux. Zero third-party dependencies. CRC32 and everything else are implemented in-house.
 - Chosen by the user while implementing stage 10 (details in `Prompts/10-implementation.report.md`): `clear()` after `commit()` traps (it is non-throwing, so it cannot report `.transactionFinished`), and `SDFileBlockDevice` opens regular files only (device nodes throw `.invalidArgument`).
+- Stage 20: `SDRawDevice` does not select disks, unmount, or escalate privileges (R1). Read-write opens need the `.dataLossRisk` token (R2); `init(readOnlyPath:)` does not (RP1). Ioctls go through the `CSlopDiskShim` C target, never hard-coded request numbers (RP2). A borrowed descriptor (`closeOnDeinit: false`) is never `flock`ed (RP3). Only character/block devices with 512/4096-byte sectors are accepted (RP5, RP6).
 
 ## Layout
 
 ```
-Package.swift                 name "SlopDisk", macOS 13+; products: SlopDisk (library), sdinspect (executable)
+Package.swift                 name "SlopDisk", macOS 13+; products: SlopDisk (library), sdinspect (executable);
+                              targets: CSlopDiskShim (C) ← SlopDisk ← sdinspect
 Sources/SlopDisk/
   SDSize.swift                SDSize, SDPartitionExtent
   SDError.swift
@@ -45,17 +50,20 @@ Sources/SlopDisk/
   SDDisk.swift                GPT engine: refresh, repair, the crash-safe write procedure and read-back check
   SDTransaction.swift         staged edits and placement (first-fit, 1 MiB alignment, lowest free slot)
   SDDiskImage.swift           factory, SDDiskImageSource, sector-size detection (package access, used by sdinspect)
-  Devices/                    SDMemoryBlockDevice (sparse 64 KiB chunks), SDFileBlockDevice (flock), POSIXIO
+  Devices/                    SDMemoryBlockDevice (sparse 64 KiB chunks), SDFileBlockDevice (flock), POSIXIO,
+                              SDRawDevice (device nodes: ioctl geometry, aligned 1 MiB bounce buffer, cache flush)
   Model/                      SDPartition, SDPartitionType, SDPartitionAttributes, SDPartitionScheme and friends
   OnDisk/                     internal codecs: CRC32, GUIDCodec, UTF16Label, ProtectiveMBR, GPTHeader, GPTEntry,
                               GPTGeometry, Bytes (little-endian access, typed-throws buffer helpers)
 Sources/sdinspect/            read-only CLI: main, Arguments (hand-written parser), Report, HexDump
-Sources/CSlopDiskShim/        (stage 20, not yet present) C shim for disk ioctls
+Sources/CSlopDiskShim/        C shim for disk ioctls: include/CSlopDiskShim.h, shim.c (returns 0 or errno)
 Tests/SlopDiskTests/          Swift Testing
   Support/TestSupport.swift   golden bytes, temp directories, Process runner, recording/crashing device wrappers
   ToolCrossCheckTests.swift   (b) gpt(8) / hdiutil cross-checks, skipped without the tools
   SDInspectTests.swift        runs the built sdinspect binary (found next to the test bundle)
-  HdiutilAttachTests.swift    (c) opt-in attach + newfs_msdos
+  HdiutilAttachTests.swift    (c) opt-in attach + newfs_msdos; attach parsing, hdiutil info lookup, detachAll
+  RawDeviceTests.swift        SDRawDevice: RawDeviceTests (no device, always runs),
+                              RawDeviceAttachTests (c, RT1–RT7 and more, on attached images)
 Prompts/                      agent task documents and their reports (Korean)
 ```
 
@@ -65,7 +73,9 @@ Prompts/                      agent task documents and their reports (Korean)
 swift build
 swift test
 SLOPDISK_TEST_HDIUTIL_ATTACH=1 swift test      # macOS only; attaches temporary images
+SLOPDISK_TEST_HDIUTIL_ATTACH=1 swift test --filter RawDevice   # SDRawDevice suites only
 swift run sdinspect [--sector-size 512|4096] [--hex] <image>
+swift run sdinspect [--hex] /dev/rdiskN        # only on a device you attached yourself with -nomount
 ```
 
 Useful macOS tools for checking an image by hand (no attach needed):
@@ -98,6 +108,9 @@ hdiutil create -size 8m -layout GPTSPUD -type UDIF <name>   # raw GPT fixture (n
 - `expectError` takes an untyped closure on purpose: typed-throws inference for closures passed to a generic helper falls back to `any Error` in some contexts.
 - Array's `withUnsafeBytes` is `rethrows` and erases `SDError`; inside `throws(SDError)` code use the `withBytes` / `withMutableBytes` helpers in `OnDisk/Bytes.swift`.
 - Linux: `docker run --rm -v "$PWD":/w:ro -w /w swift:latest bash -c 'swift build --scratch-path /tmp/build && swift test --scratch-path /tmp/build'`. The read-only mount and separate scratch path keep the macOS `.build` untouched.
+- `SDRawDevice` is tested only on macOS, against `hdiutil`-attached images (512-byte sectors). Linux loop devices need root, so on Linux the shim's `BLKSSZGET` / `BLKGETSIZE64` branch is build-tested only; 4Kn devices are not tested anywhere.
+- Opt-in attach suites are `.serialized`, open the device only after validating the path, and release every `SDRawDevice` (scope it in a `do { }` block) before detaching. Check `hdiutil info | grep -c image-path` before and after a run: nothing the tests attached may remain.
+- Swift may release an object after its last use, so keep a lock holder alive with `withExtendedLifetime` while asserting `.locked`, and scope it in `do { }` so it is gone before the next open.
 
 ## Prompts workflow
 
