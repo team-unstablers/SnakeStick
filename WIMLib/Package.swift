@@ -83,6 +83,12 @@ let package = Package(
             dependencies: ["CWIMLib"],
             swiftSettings: swiftSettings,
         ),
+        .testTarget(
+            name: "WIMLibTests",
+            // CWIMLib for the WIMLIB_ERR_* constants only; tests call wimlib through WIMLib.
+            dependencies: ["WIMLib", "CWIMLib"],
+            swiftSettings: swiftSettings,
+        ),
     ],
     cLanguageStandard: .gnu99
 )
