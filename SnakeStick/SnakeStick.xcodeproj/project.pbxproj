@@ -6,7 +6,21 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		8265EACEF77542789FBD6B3D /* SnakeStickCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2A03B02B4FE94B59A1759486 /* SnakeStickCore */; };
+		9B1DD009AC01418689AFDCFA /* SnakeStickCore in Frameworks */ = {isa = PBXBuildFile; productRef = 595345F718BD40EE96945B39 /* SnakeStickCore */; };
+		48AAE532E7C74A8D9F11B230 /* SnakeStickHelper in Embed Helper */ = {isa = PBXBuildFile; fileRef = A02E833272F241FE8090F5B7 /* SnakeStickHelper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		F5F0918607014EA99ABC6717 /* pl.unstabler.aislop.SnakeStick.helper.plist in Embed LaunchDaemons */ = {isa = PBXBuildFile; fileRef = 56FF0BBCDE614922A4BFC78E /* pl.unstabler.aislop.SnakeStick.helper.plist */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
+		314E8BB0C7D443678AD54E72 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F6BD1799306C65C500CA4D17 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 391EB0762BB44036839321D2;
+			remoteInfo = SnakeStickHelper;
+		};
 		F6BD17AF306C65C600CA4D17 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F6BD1799306C65C500CA4D17 /* Project object */;
@@ -23,7 +37,34 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		2F1DC70B6C9D4FE386881377 /* Embed Helper */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				48AAE532E7C74A8D9F11B230 /* SnakeStickHelper in Embed Helper */,
+			);
+			name = "Embed Helper";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7BE66AF8A2B648029DB23EC2 /* Embed LaunchDaemons */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Library/LaunchDaemons;
+			dstSubfolderSpec = 1;
+			files = (
+				F5F0918607014EA99ABC6717 /* pl.unstabler.aislop.SnakeStick.helper.plist in Embed LaunchDaemons */,
+			);
+			name = "Embed LaunchDaemons";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		A02E833272F241FE8090F5B7 /* SnakeStickHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = SnakeStickHelper; sourceTree = BUILT_PRODUCTS_DIR; };
+		56FF0BBCDE614922A4BFC78E /* pl.unstabler.aislop.SnakeStick.helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = pl.unstabler.aislop.SnakeStick.helper.plist; sourceTree = "<group>"; };
 		F6BD17A1306C65C500CA4D17 /* SnakeStick.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SnakeStick.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6BD17AE306C65C600CA4D17 /* SnakeStickTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SnakeStickTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6BD17B8306C65C600CA4D17 /* SnakeStickUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SnakeStickUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -45,12 +86,24 @@
 			path = SnakeStickUITests;
 			sourceTree = "<group>";
 		};
+		9B704CD943354F55A912ED63 /* SnakeStickHelper */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SnakeStickHelper;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		F6BD179E306C65C500CA4D17 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				8265EACEF77542789FBD6B3D /* SnakeStickCore in Frameworks */,
+			);
+		};
+		FD6317A28EB040A48BB0E4C9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				9B1DD009AC01418689AFDCFA /* SnakeStickCore in Frameworks */,
 			);
 		};
 		F6BD17AB306C65C600CA4D17 /* Frameworks */ = {
@@ -70,16 +123,27 @@
 			isa = PBXGroup;
 			children = (
 				F6BD17A3306C65C500CA4D17 /* SnakeStick */,
+				9B704CD943354F55A912ED63 /* SnakeStickHelper */,
+				2BE4BD463A8E4988840E841F /* LaunchDaemons */,
 				F6BD17B1306C65C600CA4D17 /* SnakeStickTests */,
 				F6BD17BB306C65C600CA4D17 /* SnakeStickUITests */,
 				F6BD17A2306C65C500CA4D17 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
+		2BE4BD463A8E4988840E841F /* LaunchDaemons */ = {
+			isa = PBXGroup;
+			children = (
+				56FF0BBCDE614922A4BFC78E /* pl.unstabler.aislop.SnakeStick.helper.plist */,
+			);
+			path = LaunchDaemons;
+			sourceTree = "<group>";
+		};
 		F6BD17A2306C65C500CA4D17 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				F6BD17A1306C65C500CA4D17 /* SnakeStick.app */,
+				A02E833272F241FE8090F5B7 /* SnakeStickHelper */,
 				F6BD17AE306C65C600CA4D17 /* SnakeStickTests.xctest */,
 				F6BD17B8306C65C600CA4D17 /* SnakeStickUITests.xctest */,
 			);
@@ -96,16 +160,46 @@
 				F6BD179D306C65C500CA4D17 /* Sources */,
 				F6BD179E306C65C500CA4D17 /* Frameworks */,
 				F6BD179F306C65C500CA4D17 /* Resources */,
+				2F1DC70B6C9D4FE386881377 /* Embed Helper */,
+				7BE66AF8A2B648029DB23EC2 /* Embed LaunchDaemons */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				AF17336EDE5D4C2FA03DBCFF /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				F6BD17A3306C65C500CA4D17 /* SnakeStick */,
 			);
 			name = SnakeStick;
+			packageProductDependencies = (
+				2A03B02B4FE94B59A1759486 /* SnakeStickCore */,
+			);
 			productName = SnakeStick;
 			productReference = F6BD17A1306C65C500CA4D17 /* SnakeStick.app */;
 			productType = "com.apple.product-type.application";
+		};
+		391EB0762BB44036839321D2 /* SnakeStickHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AF64FDB483CE44AD8A89FECE /* Build configuration list for PBXNativeTarget "SnakeStickHelper" */;
+			buildPhases = (
+				A8AED3F0862045AFBF8E76CC /* Sources */,
+				FD6317A28EB040A48BB0E4C9 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				9B704CD943354F55A912ED63 /* SnakeStickHelper */,
+			);
+			name = SnakeStickHelper;
+			packageProductDependencies = (
+				595345F718BD40EE96945B39 /* SnakeStickCore */,
+			);
+			productName = SnakeStickHelper;
+			productReference = A02E833272F241FE8090F5B7 /* SnakeStickHelper */;
+			productType = "com.apple.product-type.tool";
 		};
 		F6BD17AD306C65C600CA4D17 /* SnakeStickTests */ = {
 			isa = PBXNativeTarget;
@@ -170,6 +264,9 @@
 						CreatedOnToolsVersion = 27.0;
 						TestTargetID = F6BD17A0306C65C500CA4D17;
 					};
+					391EB0762BB44036839321D2 = {
+						CreatedOnToolsVersion = 27.0;
+					};
 				};
 			};
 			buildConfigurationList = F6BD179C306C65C500CA4D17 /* Build configuration list for PBXProject "SnakeStick" */;
@@ -181,12 +278,16 @@
 			);
 			mainGroup = F6BD1798306C65C500CA4D17;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FAB2B5116EA0465FB0D5376E /* XCLocalSwiftPackageReference "../SnakeStickCore" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F6BD17A2306C65C500CA4D17 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				F6BD17A0306C65C500CA4D17 /* SnakeStick */,
+				391EB0762BB44036839321D2 /* SnakeStickHelper */,
 				F6BD17AD306C65C600CA4D17 /* SnakeStickTests */,
 				F6BD17B7306C65C600CA4D17 /* SnakeStickUITests */,
 			);
@@ -217,6 +318,11 @@
 			files = (
 			);
 		};
+		A8AED3F0862045AFBF8E76CC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 		F6BD17AA306C65C600CA4D17 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
@@ -230,6 +336,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		AF17336EDE5D4C2FA03DBCFF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 391EB0762BB44036839321D2 /* SnakeStickHelper */;
+			targetProxy = 314E8BB0C7D443678AD54E72 /* PBXContainerItemProxy */;
+		};
 		F6BD17B0306C65C600CA4D17 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = F6BD17A0306C65C500CA4D17 /* SnakeStick */;
@@ -390,7 +501,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -421,7 +532,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
@@ -505,6 +616,44 @@
 			};
 			name = Release;
 		};
+		6681A564742748949BF6CBD3 /* Debug configuration for PBXNativeTarget "SnakeStickHelper" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = XHA76UVA95;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = pl.unstabler.aislop.SnakeStick.helper;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		43233E598F8E40B6B666D472 /* Release configuration for PBXNativeTarget "SnakeStickHelper" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = XHA76UVA95;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = pl.unstabler.aislop.SnakeStick.helper;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -540,7 +689,35 @@
 			);
 			defaultConfigurationName = Release;
 		};
+		AF64FDB483CE44AD8A89FECE /* Build configuration list for PBXNativeTarget "SnakeStickHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6681A564742748949BF6CBD3 /* Debug configuration for PBXNativeTarget "SnakeStickHelper" */,
+				43233E598F8E40B6B666D472 /* Release configuration for PBXNativeTarget "SnakeStickHelper" */,
+			);
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		FAB2B5116EA0465FB0D5376E /* XCLocalSwiftPackageReference "../SnakeStickCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../SnakeStickCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2A03B02B4FE94B59A1759486 /* SnakeStickCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FAB2B5116EA0465FB0D5376E /* XCLocalSwiftPackageReference "../SnakeStickCore" */;
+			productName = SnakeStickCore;
+		};
+		595345F718BD40EE96945B39 /* SnakeStickCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FAB2B5116EA0465FB0D5376E /* XCLocalSwiftPackageReference "../SnakeStickCore" */;
+			productName = SnakeStickCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = F6BD1799306C65C500CA4D17 /* Project object */;
 	validationLevel = 1;

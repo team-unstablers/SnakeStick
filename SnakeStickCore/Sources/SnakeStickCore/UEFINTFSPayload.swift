@@ -14,15 +14,34 @@ public enum UEFINTFSPayload {
     static let directoryOnPartition = "efi/boot"
 
     /// The resource directory holding the files and `VERSIONS.md`.
+    ///
+    /// Looked up by hand rather than through `Bundle.module`, whose accessor calls `fatalError`
+    /// when the bundle is missing, and which does not look in `Contents/Resources` for the helper
+    /// daemon that lives in the app's `Contents/MacOS`.
     public static func directory() throws -> URL {
-        guard let url = Bundle.module.url(forResource: "UEFI-NTFS", withExtension: nil) else {
-            throw InstallerError(
-                phase: .openISO, kind: .other,
-                message: "The bundled UEFI:NTFS files are missing from \(Bundle.module.bundlePath)."
-            )
+        let bundleName = "SnakeStickCore_SnakeStickCore.bundle"
+        let executableDirectory = Bundle.main.executableURL?.deletingLastPathComponent()
+        let candidates: [URL?] = [
+            Bundle.main.resourceURL,                                            // app
+            executableDirectory?.deletingLastPathComponent().appendingPathComponent("Resources"),  // helper in Contents/MacOS
+            Bundle.main.bundleURL,                                              // command line tool
+            executableDirectory,
+            Bundle(for: BundleMarker.self).resourceURL,                         // test bundle, framework
+            Bundle(for: BundleMarker.self).bundleURL.deletingLastPathComponent(),
+        ]
+        for candidate in candidates.compactMap({ $0 }) {
+            if let bundle = Bundle(url: candidate.appendingPathComponent(bundleName)),
+               let url = bundle.url(forResource: "UEFI-NTFS", withExtension: nil) {
+                return url
+            }
         }
-        return url
+        throw InstallerError(
+            phase: .prepareBootPartition, kind: .other,
+            message: "The bundled UEFI:NTFS files (\(bundleName)) are missing next to \(Bundle.main.bundlePath)."
+        )
     }
+
+    private final class BundleMarker {}
 
     public static func url(of name: String) throws -> URL {
         try directory().appendingPathComponent(name)
