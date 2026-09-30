@@ -112,6 +112,14 @@ struct DiskClassificationTests {
         #expect(DiskCandidate.displayModel(description: repeated) == "Samsung T7")
     }
 
+    @Test func fileSystemNamesFollowTheKind() {
+        #expect(DiskCandidate.fileSystemName(kind: "ntfs", type: "MS-DOS (FAT12)") == "NTFS")
+        #expect(DiskCandidate.fileSystemName(kind: "msdos", type: "MS-DOS (FAT32)") == "MS-DOS (FAT32)")
+        #expect(DiskCandidate.fileSystemName(kind: "exfat", type: nil) == "ExFAT")
+        #expect(DiskCandidate.fileSystemName(kind: nil, type: nil) == nil)
+        #expect(DiskCandidate.fileSystemName(kind: "zfs", type: nil) == "zfs")
+    }
+
     @Test(arguments: [("disk4", true), ("disk12", true), ("disk4s1", false), ("rdisk4", false), ("/dev/disk4", false), ("disk", false), ("disk-1", false)])
     func wholeDiskNames(name: String, valid: Bool) {
         #expect(DiskCandidate.isWholeDiskName(name) == valid)

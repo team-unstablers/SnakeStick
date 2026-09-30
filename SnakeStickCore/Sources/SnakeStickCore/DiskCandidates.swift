@@ -147,6 +147,23 @@ extension DiskCandidate {
         return model.isEmpty ? vendor : "\(vendor) \(model)"
     }
 
+    /// The file system shown for a volume. `DAVolumeKind` decides: `DAVolumeType` was seen to
+    /// report `MS-DOS (FAT12)` for an NTFS volume (macOS 26), so it is used only for FAT, where it
+    /// names the FAT type.
+    static func fileSystemName(kind: String?, type: String?) -> String? {
+        switch kind?.lowercased() {
+        case "msdos": type ?? "MS-DOS"
+        case "ntfs": "NTFS"
+        case "exfat": "ExFAT"
+        case "apfs": "APFS"
+        case "hfs": "Mac OS Extended"
+        case "udf": "UDF"
+        case "cd9660": "ISO 9660"
+        case let other?: type ?? other
+        case nil: type
+        }
+    }
+
     private static func bool(_ value: Any?) -> Bool? {
         switch value {
         case let value as Bool: value
@@ -203,7 +220,10 @@ public func listWholeDisks() throws -> [DiskCandidate] {
         var volumes: [DiskCandidate.Volume] = []
         for partition in [name] + partitionNames.sorted(by: { $0.localizedStandardCompare($1) == .orderedAscending }) {
             guard let partitionDescription = descriptions[partition],
-                  let type = partitionDescription["DAVolumeType"] as? String ?? partitionDescription["DAVolumeKind"] as? String
+                  let type = DiskCandidate.fileSystemName(
+                      kind: partitionDescription["DAVolumeKind"] as? String,
+                      type: partitionDescription["DAVolumeType"] as? String
+                  )
             else {
                 continue
             }
