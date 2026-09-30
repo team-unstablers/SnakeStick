@@ -47,16 +47,17 @@ struct HdiutilAttachTests {
         return Attachment(wholeDisk: wholeDisk, scheme: first.dropFirst().joined(separator: " "), slices: slices)
     }
 
-    /// Detaches every device whose backing image is `image`, found via `hdiutil info`, so that cleanup works even
-    /// when parsing the attach output failed. Only devices backed by this test's own image are touched.
-    static func detachAll(backedBy image: String) {
+    /// The `dev-entry` of every system entity (whole disk and slices) whose backing image is `image`,
+    /// according to `hdiutil info`. Empty if the image is not attached or the output cannot be read.
+    static func deviceEntries(backedBy image: String) -> [String] {
         guard let result = try? Tools.run(Tools.hdiutil, ["info", "-plist"]),
               let plist = try? PropertyListSerialization.propertyList(from: Data(result.stdout.utf8), format: nil),
               let images = (plist as? [String: Any])?["images"] as? [[String: Any]]
         else {
-            return
+            return []
         }
         let target = URL(fileURLWithPath: image).resolvingSymlinksInPath().path
+        var devices: [String] = []
         for entry in images {
             guard let imagePath = entry["image-path"] as? String,
                   URL(fileURLWithPath: imagePath).resolvingSymlinksInPath().path == target,
@@ -64,11 +65,17 @@ struct HdiutilAttachTests {
             else {
                 continue
             }
-            let devices = entities.compactMap { $0["dev-entry"] as? String }.filter(isWholeDiskPath)
-            for device in devices {
-                if (try? Tools.run(Tools.hdiutil, ["detach", device]))?.status != 0 {
-                    _ = try? Tools.run(Tools.hdiutil, ["detach", "-force", device])
-                }
+            devices += entities.compactMap { $0["dev-entry"] as? String }
+        }
+        return devices
+    }
+
+    /// Detaches every device whose backing image is `image`, found via `hdiutil info`, so that cleanup works even
+    /// when parsing the attach output failed. Only devices backed by this test's own image are touched.
+    static func detachAll(backedBy image: String) {
+        for device in deviceEntries(backedBy: image).filter(isWholeDiskPath) {
+            if (try? Tools.run(Tools.hdiutil, ["detach", device]))?.status != 0 {
+                _ = try? Tools.run(Tools.hdiutil, ["detach", "-force", device])
             }
         }
     }

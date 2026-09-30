@@ -53,14 +53,17 @@ struct ToolCrossCheckTests {
 
     // MARK: T3
 
+    /// `gpt -r show` rows for a 64 MiB image with the T3 layout (`writeT3Layout`).
+    static let t3Rows = [
+        GPTShowRow(start: 2048, size: 32768, index: 1, contents: "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"),
+        GPTShowRow(start: 34816, size: 96223, index: 2, contents: "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7"),
+    ]
+
     @Test func gptShowSeesSlopDiskTable() throws {
         try withTemporaryDirectory { directory in
             let path = directory + "/t3.img"
             try makeT3Image(at: path)
-            #expect(try Self.gptShow(path) == [
-                GPTShowRow(start: 2048, size: 32768, index: 1, contents: "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"),
-                GPTShowRow(start: 34816, size: 96223, index: 2, contents: "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7"),
-            ])
+            #expect(try Self.gptShow(path) == Self.t3Rows)
             #expect(try Self.gptShow(path, labels: true).map(\.contents) == ["\"EFI\"", "\"WIN11ISO\""])
         }
     }

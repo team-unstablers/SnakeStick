@@ -67,6 +67,18 @@ enum SDInspectBinary {
         #expect(result.status == 74)
     }
 
+    /// Paths under /dev/ go to SDRawDevice. This one does not exist, so nothing is opened.
+    /// Real device paths are exercised only by RawDeviceAttachTests, on images it attaches itself.
+    @Test func devicePathsRejectSectorSize() throws {
+        let missing = "/dev/slopdisk-test-missing-\(UUID().uuidString)"
+        let withSize = try SDInspectBinary.run(["--sector-size", "512", missing])
+        #expect(withSize.status == 64)
+        #expect(withSize.stderr.contains("--sector-size cannot be used with a device"))
+        let withoutSize = try SDInspectBinary.run([missing])
+        #expect(withoutSize.status == 74)
+        #expect(withoutSize.stderr.contains("open: No such file or directory"))
+    }
+
     @Test func healthyDegradedAndUnrecoverable() throws {
         try withTemporaryDirectory { directory in
             let path = directory + "/t3.img"
@@ -168,7 +180,10 @@ enum SDInspectBinary {
             .appendingPathComponent("Sources/sdinspect")
         let files = try FileManager.default.contentsOfDirectory(atPath: sources.path).filter { $0.hasSuffix(".swift") }
         #expect(!files.isEmpty)
-        let forbidden = ["withTransaction", "repair(", "commit(", ".readWrite", "SDDisk(", "SDDiskImage.open", "SDDiskImage.create", ".write(lba", "writeSectors", "export("]
+        let forbidden = [
+            "withTransaction", "repair(", "commit(", ".readWrite", "SDDisk(", "SDDiskImage.open", "SDDiskImage.create",
+            ".write(lba", "writeSectors", "export(", "dataLossRisk", "SDRawDevice(path:", "fileDescriptor:",
+        ]
         for file in files {
             let text = try String(contentsOf: sources.appendingPathComponent(file), encoding: .utf8)
             for token in forbidden {

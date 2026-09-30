@@ -285,18 +285,38 @@ func expectError<R>(_ expected: SDError, sourceLocation: SourceLocation = #_sour
     }
 }
 
-/// A 64 MiB file image with the T3 layout: 16 MiB EFI System, then Microsoft Basic Data for the rest.
+/// Asserts that `body` throws `.invalidArgument`, whatever the message.
+func expectInvalidArgument<R>(sourceLocation: SourceLocation = #_sourceLocation, _ body: () throws -> R) {
+    do {
+        _ = try body()
+        Issue.record("expected .invalidArgument, but nothing was thrown", sourceLocation: sourceLocation)
+    } catch let error as SDError {
+        if case .invalidArgument = error {
+            return
+        }
+        Issue.record("expected .invalidArgument, got \(error)", sourceLocation: sourceLocation)
+    } catch {
+        Issue.record("expected .invalidArgument, got non-SDError \(error)", sourceLocation: sourceLocation)
+    }
+}
+
+/// A 64 MiB file image with the T3 layout (see `writeT3Layout`).
 /// The disk is released before returning, so the file is closed and unlocked.
 @discardableResult
 func makeT3Image(at path: String) throws -> [SDPartition] {
     let disk = try SDDiskImage.create(.file(path), desiredSize: .megabytes(64))
+    try writeT3Layout(disk)
+    return disk.partitions
+}
+
+/// Replaces the table with the T3 layout: 16 MiB EFI System, then Microsoft Basic Data for the rest.
+func writeT3Layout(_ disk: SDDisk) throws {
     try disk.withTransaction { txn in
         txn.clear()
         try txn.addPartition(.megabytes(16), type: .efiSystem, label: "EFI")
         try txn.addPartition(.remaining, type: .microsoftBasicData, label: "WIN11ISO")
         try txn.commit()
     }
-    return disk.partitions
 }
 
 /// `true` for `/dev/diskN` or `/dev/rdiskN` (the only whole-disk paths tests may use, and only from attach output).
