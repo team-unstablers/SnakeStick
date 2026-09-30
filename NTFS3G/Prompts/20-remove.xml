@@ -1,0 +1,79 @@
+<agent-task mode="execute">
+    <status>
+        - 저장소 루트 `Prompts/00-metainit.xml`의 2026-09-30 인터뷰에서 확정한 결정 28을 구현한다. 다시 묻지 않는다.
+        - 선행 조건: `Prompts/10-swift-api.report.md`가 있어야 한다 (2026-09-30 기준 있음). 그 보고서의 이름과 결정(D1~D17, P1~P12)을 전제로 한다.
+        - 작업 규모: 공개 메서드 1개, 에러 케이스 1개, 테스트 6~8개, README 한 절. 커밋 1개.
+        - 이 보고서(`Prompts/20-remove.report.md`)는 SnakeStick 본편 `Prompts/10-implementation.xml`의 선행 조건이다.
+    </status>
+
+    <objective>
+        # NTFS3G: removeItem
+
+        ## 배경
+        - SnakeStick의 "Windows UEFI CA 2023 서명 부트로더" 옵션은 `copyTree`로 ISO를 복사한 뒤 NTFS 볼륨의 `/efi/boot/bootx64.efi`, `/bootmgr.efi`, `/efi/microsoft/boot/fonts/*.ttf`를 다른 파일로 바꿔야 한다. `writeFile(from:)`은 기존 경로에 `alreadyExists`를 던지므로 지울 수단이 필요하다.
+
+        ## 범위
+        - `NTFSVolume.removeItem(_ path: String) throws` — 파일 또는 빈 디렉터리를 지운다 (`code#api`).
+        - `NTFS3GError.directoryNotEmpty(String)` 추가.
+        - 테스트, README의 API 표와 SYNOPSIS 갱신.
+
+        ## 제외
+        - 재귀 삭제, 이름 바꾸기, 덮어쓰기 API. 호출자가 `removeItem` 뒤 `writeFile(from:)`을 부른다.
+        - 서브모듈 수정 (D1).
+
+        ## 완료 조건
+        - `<acceptance>`의 명령이 기대 결과를 낸다. `code#api`의 ensure가 테스트로 옮겨져 통과한다. `<closing>`의 보고서가 있다.
+    </objective>
+
+    <decisions source="planner">
+        - P1. 구현은 libntfs-3g의 `ntfs_delete(ntfs_volume *vol, const char *pathname, ntfs_inode *ni, ntfs_inode *dir_ni, ntfschar *name, u8 name_len)`을 쓴다 (`Vendor/ntfs-3g/include/ntfs-3g/dir.h:78`). 기존 헬퍼 `openInode`, `openDirectory`, `withDirectory`, `validatedName`(`Sources/NTFS3G/NTFSVolume+Inodes.swift`)로 부모 디렉터리와 대상 inode를 연 뒤 부른다. `ntfs_delete`는 성공하면 `ni`와 `dir_ni`를 닫는다 — 이 점을 `dir.c`에서 확인하고 이중 close를 피한다.
+        - P2. 비어 있지 않은 디렉터리는 `directoryNotEmpty`다. `ntfs_delete`가 ENOTEMPTY를 돌려주면 그것으로 매핑하고, 돌려주지 않으면 삭제 전에 `contentsOfDirectory`로 검사한다.
+        - P3. 경로 규칙은 기존과 같다: NFC 정규화(P3/C5 변경 사항), `/`로 시작, 루트는 `invalidPath("/")`, 읽기 전용 볼륨은 `readOnlyVolume`, 닫힌 볼륨은 `volumeClosed`, 없는 경로는 `notFound`.
+        - P4. 삭제 뒤 부모 디렉터리의 수정 시각은 libntfs-3g가 갱신하는 대로 둔다. 따로 맞추지 않는다.
+    </decisions>
+
+    <findings>
+        - F1. `NTFS3GError`의 기존 케이스: `invalidPath`, `invalidName`, `notFound`, `alreadyExists`, `notADirectory`, `isADirectory`, `unsupportedFileType`, `readOnlyVolume`, `volumeClosed`, `formatFailed`, `posix` (`Sources/NTFS3G/NTFS3GError.swift` 9~42행, 2026-09-30).
+        - F2. `NTFSVolume+Inodes.swift`의 헬퍼: `openInode(_:in:)`, `openDirectory(_:in:)`, `withDirectory(_:in:_:)`, `withInode(_:in:_:)`, `validatedName(_:in:)`, `createItem(...)` (21~160행).
+        - F3. `ntfs_delete`는 `dir.h:78`에 선언되어 있다. 시그니처와 inode 해제 규칙은 `Vendor/ntfs-3g/libntfs-3g/dir.c`의 정의에서 실행자가 확인한다.
+        - F4. 테스트 파일: `Tests/NTFS3GTests/{CopyTreeTests,DirectoryTests,FileTests,Fixtures,FormatTests,IntegrationTests,ReadmeTests,TestSupport}.swift`. 새 테스트는 `RemoveTests.swift`로 둔다.
+    </findings>
+
+    <code id="api" lang="text/x-pseudocode; variant=swift+imagine">
+        extension NTFSVolume {
+            @location('Sources/NTFS3G/NTFSVolume+Removing.swift')
+            imagine func removeItem(_ path: String) throws {
+                requirements(`파일 또는 빈 디렉터리를 지운다. P1~P3.`);
+                ensure(`writeFile 뒤 removeItem → contentsOfDirectory에 없음, 재마운트 뒤에도 없음`);
+                ensure(`removeItem 뒤 같은 경로에 writeFile(from:) 성공, 재마운트 뒤 새 바이트를 읽는다 (SnakeStick의 사용 순서)`);
+                ensure(`빈 디렉터리 → 성공`);
+                ensure(`파일이 든 디렉터리 → directoryNotEmpty(path)`);
+                ensure(`없는 경로 → notFound(path)`);
+                ensure(`"/" → invalidPath("/")`);
+                ensure(`readOnly 볼륨 → readOnlyVolume`);
+                ensure(`close() 뒤 → volumeClosed`);
+                ensure(`4 GiB 초과 파일은 IntegrationTests에서만: 지운 뒤 freeBytes가 그만큼 는다 (NTFS3G_INTEGRATION=1)`);
+            }
+        }
+    </code>
+
+    <constraints>
+        - C1. `ntfs_delete` 성공 후 inode를 다시 닫으면 이중 해제다. 실패 시에는 호출자가 닫아야 한다. `dir.c`에서 두 경로를 모두 확인한다.
+        - C2. 대소문자: `/EFI/Boot/BOOTX64.EFI`를 지우라고 해도 `copyTree`가 쓴 `/efi/boot/bootx64.efi`가 지워져야 한다. 기존 조회(`cntfs3g_lookup_ignoring_case`)와 같은 규칙을 쓴다. 테스트에 넣는다.
+        - C3. 이 저장소에서는 다른 세션이 다른 경로를 만질 수 있다. git은 `NTFS3G/` 경로를 한정해서만 쓴다. `git add -A`, `git add .`, `git commit -a`, `git stash`는 쓰지 않는다.
+    </constraints>
+
+    <acceptance>
+        `NTFS3G/`에서:
+        - `swift build` → 성공. NTFS3G 소유 파일 warning 0.
+        - `swift test` → 전부 통과 (기존 64 + 새 테스트).
+        - `NTFS3G_INTEGRATION=1 swift test --filter Remove` → 통과. 전후 `hdiutil info | grep -c image-path` 같음.
+        - `git -C Vendor/ntfs-3g status --short` → 출력 없음.
+    </acceptance>
+
+    <closing>
+        - 커밋 1개: `git add -- NTFS3G` 뒤 `git commit -m "Add NTFSVolume.removeItem" -- NTFS3G` (보고서 포함). Co-author 트레일러 없음.
+        - README.md: API 표에 `removeItem`, SYNOPSIS에 삭제 → 다시 쓰기 예 한 줄.
+        - 보고서: `Prompts/20-remove.report.md`, 한국어. 확인한 것, 확인하지 못한 것, ensure → 테스트 대응표, 플래너 결정과 다르게 한 것. 지어내지 않는다.
+    </closing>
+</agent-task>

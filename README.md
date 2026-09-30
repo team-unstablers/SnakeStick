@@ -2,68 +2,96 @@
 
 A Windows 10/11 USB installer creator for macOS.
 
+# STATUS
+
+Design is settled; the application is not implemented yet. The task documents in `Prompts/` track the work:
+
+| Stage | Document | Scope | State |
+|---|---|---|---|
+| 00 | `Prompts/00-metainit.xml` | Design interview and decisions | done (2026-09-30) |
+| 10 | `Prompts/10-implementation.xml` | Core library, CLI, privileged helper, GUI | pending |
+
+SnakeStick is built on three packages in this repository, each with its own task documents and reports:
+
+| Package | Role | State |
+|---|---|---|
+| `slopdisk/` | GPT partition tables, raw device backend (`SDRawDevice`) | stages 10 and 20 implemented |
+| `NTFS3G/` | NTFS volumes in user space on top of libntfs-3g | stage 10 implemented; stage 20 (`removeItem`) pending |
+| `WIMLib/` | WIM metadata and extraction on top of wimlib | stage 10 pending |
+
 # SYNOPSIS
 
 ```shell
-# Launch the GUI
+# Launch the GUI (writes to a USB stick; follows the Figma mockups)
 open SnakeStick.app
 
-# Write an ISO to a USB stick
-./SnakeStick.app/Contents/MacOS/SnakeStick make 'win11.iso' '/dev/disk42'
+# Write an ISO to a USB stick (needs root; asks you to type the disk name unless --yes)
+sudo snakestick make 'win11.iso' disk4
 
-# Build a raw disk image for later mass production
-# (the image size is computed from the ISO contents by default)
-./SnakeStick.app/Contents/MacOS/SnakeStick build -o 'win11_usb_image.img' 'win11.iso'
-./SnakeStick.app/Contents/MacOS/SnakeStick build --imgsize 7.5G -o 'win11_usb_image.img' 'win11.iso'
+# Build a raw disk image for later mass production (no root needed)
+# The image size is computed from the ISO contents by default.
+snakestick build -o 'win11_usb_image.img' 'win11.iso'
+snakestick build --imgsize 7.5G -o 'win11_usb_image.img' 'win11.iso'
 
-# Write a prebuilt image to a USB stick, fitting the GPT to the stick's size
-./SnakeStick.app/Contents/MacOS/SnakeStick write 'win11_usb_image.img' '/dev/disk42'
+# List eligible target disks, or inspect an ISO
+snakestick disks
+snakestick info 'win11.iso'
 ```
 
 `--imgsize` uses SI units: `1G` is 1,000,000,000 bytes. A stick sold as "8 GB" often holds slightly
 less than 8,000,000,000 bytes, so check the actual capacity of the smallest stick you plan to use.
 
+Options shared by `make` and `build`: `--label` (volume label, defaults to the ISO's label),
+`--no-verify` (skip reading the written files back), `--ca-2023` (use the Windows UEFI CA 2023
+signed boot loaders from the ISO; Windows 11 25H2 or later only).
+
 # HOW IT WORKS (PLANNED)
 
-SnakeStick never partitions or formats the target disk directly. It prepares everything in a raw disk
-image, and the only thing that ever touches the target disk is a plain block copy.
+SnakeStick partitions the target directly and builds each file system on its partition slice. No
+intermediate disk image is involved. `make` and `build` share one code path: `make` opens
+`/dev/rdiskN`, `build` creates a sparse file and attaches it with `hdiutil` to get the same kind of
+device.
 
-1. **Create a raw disk image.**
-    - `make`: a sparse file exactly as large as the target disk. On APFS the unused space is not
-      allocated, so this costs only as much as the contents.
-    - `build`: sized from the ISO contents plus headroom, or as given by `--imgsize`.
-2. **Partition it with SlopDisk.** A GPT with two partitions: an NTFS data partition (Microsoft Basic
-   Data) sized to fit the contents, and a small FAT partition that holds the UEFI:NTFS boot loader.
-   The rest of the disk is left unpartitioned. The order, position and type of the FAT partition are
-   to be decided.
-3. **Build the NTFS volume with NTFS3G.**
-    - A separate, partition-sized image file is formatted with mkntfs, and the ISO contents are copied
-      into it in user space through libntfs-3g. Nothing is mounted for writing.
-    - The ISO itself is the copy source. How it is read (a read-only `hdiutil` mount or a built-in UDF
-      reader) is to be decided.
-    - Files of 4 GiB or larger, such as `sources/install.wim`, are copied as they are. Nothing is split.
-    - File timestamps are preserved. Names that Windows cannot use are rejected.
-4. **Add the UEFI:NTFS partition.** It contains the Secure Boot signed UEFI:NTFS loader and its NTFS
-   driver. Whether it is written from a prebuilt FAT image or assembled from the signed binaries is
-   to be decided.
-5. **Assemble the disk image.** The NTFS partition image is copied into the disk image at the
-   partition's offset, keeping the file sparse. `build` stops here.
-6. **Write it to the target disk** (`make`, `write`).
-    - Only this step needs elevated privileges.
-    - The target is unmounted, and automatic mounting is blocked while writing.
-    - Only the regions that matter are written: from the start of the image to the end of the last
-      partition, and the backup GPT at the end of the disk.
-    - For `write`, the protective MBR, the primary GPT header and the backup GPT are regenerated in
-      memory to match the target disk's size.
-    - The written data is read back and verified.
+1. **Open the ISO.** It is mounted read-only with `hdiutil`. The volume label comes from the ISO
+   9660 descriptor; the Windows version and architecture come from the XML in `sources/boot.wim`
+   (WIMLib). The required size is estimated from the file tree (NTFS3G).
+2. **Prepare the target.** The disk is checked again against the eligibility rules (external or
+   removable, not the boot disk, large enough), unmounted, and a DiskArbitration mount-approval
+   callback keeps macOS from mounting anything on it while SnakeStick works.
+3. **Write the partition table with SlopDisk.** A GPT with two partitions: an NTFS data partition
+   (Microsoft Basic Data) that takes all the space, and a 1 MiB FAT partition at the end of the disk
+   (EFI System Partition, named `UEFI:NTFS`) for the UEFI:NTFS boot loader. This is the same layout
+   Rufus uses.
+4. **Check the slices.** The kernel publishes `/dev/rdiskNs1` and `s2` after the table is written.
+   Their parent disk, offset and size are compared with what SlopDisk wrote before anything is
+   formatted.
+5. **Format the NTFS partition with NTFS3G.** mkntfs runs in-process on `/dev/rdiskNs1`. Nothing is
+   mounted for writing, so no macOS metadata (`.fseventsd`, `.Spotlight-V100`, `._*`, `.DS_Store`)
+   ends up in the Windows partition.
+6. **Copy the files** from the ISO into the NTFS partition through libntfs-3g. Files of 4 GiB or
+   larger, such as `sources/install.wim`, are copied as they are; nothing is split. With
+   `--ca-2023`, the boot loaders are replaced by the 2023-signed ones extracted from `boot.wim`,
+   the way Rufus does it.
+7. **Prepare the UEFI:NTFS partition.** `newfs_msdos`, then the Secure Boot signed UEFI:NTFS loader
+   and NTFS driver (x64 and ARM64) are copied in through a short read-write mount that is scrubbed
+   before it is unmounted.
+8. **Verify.** The partition table is read back with SlopDisk, the FAT files are hashed, and unless
+   verification is off, the NTFS partition is read back with NTFS3G and compared with the ISO file
+   by file.
+
+Only `make` needs elevated privileges. The GUI runs the whole pipeline in a root helper daemon
+(registered with `SMAppService`, reached over XPC) and asks for administrator authentication once
+per write. The CLI runs it in-process under `sudo`.
 
 # DESIGN NOTES
 
-- **Why image-first.** SlopDisk is written by an LLM coding agent. SnakeStick only uses it on image
-  files and in-memory buffers, never on the target disk, even though SlopDisk has a raw device backend.
-  The component that writes to the target
-  disk copies byte ranges and knows nothing about partition tables. This also lets `make` and `build`
-  share one code path, and confines elevated privileges to the final copy.
+- **Direct partitioning.** An earlier design built a complete disk image first and only block-copied
+  it to the stick, to keep SlopDisk (written by an LLM coding agent) away from real disks. It was
+  dropped: once the partition table is on the device, the kernel's partition slices give mkntfs the
+  "device with just one partition" it needs, and the temporary partition image, the extra copy and
+  the sparse-file bookkeeping all disappear. The price is that the disk-selection rules and the
+  confirmation step are now the last line of defense, so they are checked in the app and again in
+  the helper.
 - **UEFI only.** Legacy BIOS boot is not supported. Windows 11 requires UEFI, and BIOS boot would need
   an MBR plus partition boot code.
 - **NTFS plus UEFI:NTFS instead of FAT32.** FAT32 cannot hold files of 4 GiB or larger, and
@@ -72,8 +100,16 @@ image, and the only thing that ever touches the target disk is a plain block cop
   [UEFI:NTFS](https://github.com/pbatard/uefi-ntfs), a boot loader that loads an NTFS driver and then
   starts `\EFI\BOOT\BOOTX64.EFI` from the NTFS partition. Rufus uses the same arrangement.
 - **NTFS in user space.** NTFS volumes are created by NTFS3G, a Swift package in this repository that
-  wraps libntfs-3g, vendored as an unmodified submodule. Because nothing is mounted for writing, no
-  macOS metadata (`.fseventsd`, `.Spotlight-V100`, `._*`, `.DS_Store`) ends up on the stick.
+  wraps libntfs-3g, vendored as an unmodified submodule. WIMLib does the same for wimlib.
+- **Bundled boot loaders.** The UEFI:NTFS loader and NTFS driver are Microsoft-signed binaries taken
+  unmodified from the upstream releases; their versions, URLs and SHA-256 hashes are recorded next
+  to them and checked by a test. They cannot be rebuilt without losing the signature.
+
+# NON-GOALS
+
+- Bypassing Windows 11 hardware requirements, unattended-install answer files, driver injection.
+- Installing or updating Secure Boot certificates on the target PC.
+- Legacy BIOS boot.
 
 # KNOWN LIMITATIONS
 
@@ -81,23 +117,26 @@ These are accepted trade-offs, not design goals.
 
 - **Images are not bit-for-bit reproducible.** mkntfs assigns a random volume serial number, and NTFS
   records creation and MFT change times that cannot be preset, so images differ between runs.
-- **The NTFS partition is built as a separate file.** mkntfs can only format a whole file or device,
-  not a region at an offset inside a larger image. NTFS3G therefore formats a partition-sized image,
-  which is then copied into the disk image. This costs one extra copy.
+- **`build` images are tied to their size.** The NTFS partition fills the image, so an image cannot
+  be written to a smaller stick, and if it is written to a larger one with `dd` the backup GPT ends
+  up at the end of the image rather than the end of the disk. Firmware and partitioning tools may
+  warn about or reject this. `make` writes a fresh table sized to the stick and has neither problem.
 - **Booting depends on UEFI:NTFS.** The loader and its NTFS driver are third-party code. Some PCs only
   boot it with Secure Boot enabled after the "3rd party UEFI CA" is allowed in the firmware settings.
-  Microsoft's 2011 Secure Boot certificates expire in 2026; how SnakeStick handles the 2023
-  certificates is to be decided.
+  Microsoft's 2011 Secure Boot certificates expire in 2026; the `--ca-2023` option covers the Windows
+  boot loaders, and whether UEFI:NTFS itself is signed with the 2023 CA has not been verified.
 - **Windows compatibility of NTFS3G volumes is not yet verified.** libntfs-3g creates file names in the
   POSIX namespace and does not generate DOS 8.3 names. Windows is expected to handle this, but it has
   not been tested on real hardware yet.
-- **Plain `dd` leaves the backup GPT in the wrong place.** If a `build` image is written with `dd` to a
-  larger stick, the backup GPT header ends up at the end of the image rather than the end of the disk.
-  Firmware and partitioning tools may warn about or reject this. Use `SnakeStick write` instead.
+- **Writing straight to the stick mixes random writes into the copy.** NTFS metadata updates are
+  small random writes. This may be slower than the old image-first design on some sticks; it has not
+  been measured yet.
 
 # LICENSE
 
 GPLv3
 
-Bundled packages keep their own licenses: SlopDisk is under the Artistic License 2.0, and NTFS3G and
-libntfs-3g are under the GNU GPL version 2 or later.
+Bundled packages keep their own licenses: SlopDisk is under the Artistic License 2.0, NTFS3G and
+libntfs-3g are under the GNU GPL version 2 or later, WIMLib and wimlib are under the GNU LGPL
+version 3 or later. The bundled UEFI:NTFS loader and NTFS driver binaries are under the GNU GPL
+version 2; their sources are the upstream releases recorded in `SnakeStickCore/Resources/UEFI-NTFS/VERSIONS.md`.

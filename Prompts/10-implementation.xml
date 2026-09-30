@@ -1,0 +1,562 @@
+<agent-task mode="execute">
+    <status>
+        - `Prompts/00-metainit.xml`을 2026-09-30에 수행한 결과다. `<decisions source="user">`는 사용자와 확정한 것이며 다시 묻지 않는다. `<decisions source="planner">`는 사용자 결정에서 파생된 세부이며, 구현 중 명백히 잘못된 것으로 드러나면 멈추고 보고한다.
+        - `<findings>`는 플래너가 코드·보고서·웹 문서에서 확인한 사실이다. 다시 조사하지 않는다. 확인하지 못한 것은 `<unverified>`에 있고, 실행자가 실기로 확인해서 보고서에 적는다.
+        - 선행 조건 셋이 전부 완료되어야 시작한다 (`<prerequisite>`). 하나라도 보고서가 없으면 시작하지 않고 보고한다.
+        - 작업 규모: SwiftPM 패키지 1개(라이브러리 + CLI), Xcode 타깃 2개(앱 수정, 헬퍼 데몬 추가), 테스트 스위트, README·CLAUDE.md 갱신. 커밋 7개 안팎 (`<closing>`).
+        - GUI는 Figma 시안을 따른다 (F30). 시안의 문구·상태·버튼 규칙은 `<figma>`와 `code#strings`에 옮겨 두었다.
+    </status>
+
+    <objective>
+        # SnakeStick: macOS용 Windows 10/11 USB 설치 디스크 제작기
+
+        ## 배경
+        - SnakeStick은 Windows ISO를 USB 스틱에 UEFI 부팅 가능한 형태로 쓴다. 파티션 테이블은 SlopDisk(`slopdisk/`)가 대상 디바이스에 직접 쓰고, NTFS 볼륨은 NTFS3G(`NTFS3G/`)가 파티션 슬라이스에 직접 만들며, UEFI:NTFS 로더가 든 작은 FAT 파티션이 NTFS의 부트로더로 체인한다. 임시 파티션 이미지는 없다 (결정 13·14).
+        - 세 패키지(SlopDisk, NTFS3G, WIMLib)는 각자의 지시서로 이미 구현되어 있다. 이 지시서는 그것들을 묶는 코어 라이브러리, CLI, 특권 헬퍼 데몬, GUI를 만든다.
+
+        ## 범위
+        - `SnakeStickCore/` SwiftPM 패키지: 라이브러리 `SnakeStickCore`(파이프라인, 디스크 선별, ISO 정보)와 실행 파일 `snakestick`(CLI: `make`, `build`) (§1, §13).
+        - Xcode 앱 `SnakeStick`(GUI, `make` 전용, Figma 시안)과 헬퍼 데몬 `SnakeStickHelper`(root, SMAppService + XPC) (§12, §14).
+        - 단위 테스트와 opt-in 통합 테스트 (§15). 문서 (§16).
+
+        ## 제외
+        - `slopdisk/`, `NTFS3G/`, `WIMLib/`의 수정. 이 패키지들에서 버그나 부족한 API를 발견하면 고치지 말고 보고서에 적는다. 작업이 막히는 경우에만 멈추고 보고한다 (결정 10·12·22).
+        - Windows 11 하드웨어 요구사항 우회, 무인 설치 응답 파일, BIOS 부팅 (결정 1, P13).
+        - Windows·실제 UEFI 펌웨어에서의 부팅 검증. 실행자는 이 머신에서 할 수 있는 것만 확인하고(§15), 나머지는 `<unverified>`로 보고서에 남긴다.
+        - App Store 배포, 공증 파이프라인 자동화. Developer ID 서명 설정은 §12에서 필요한 만큼만 한다.
+
+        ## 완료 조건
+        - `<acceptance>`의 명령이 기대 결과를 낸다. `code#core-api`·`code#partition`의 ensure가 테스트로 옮겨져 통과한다. `<closing>`의 보고서가 있다.
+    </objective>
+
+    <prerequisite path="slopdisk/Prompts/20-raw-device.xml" state="done">
+        보고서 `slopdisk/Prompts/20-raw-device.report.md`. 남긴 것: `SDRawDevice(path:acknowledging: .dataLossRisk)`, `SDRawDevice(readOnlyPath:)`, `SDRawDevice(fileDescriptor:closeOnDeinit:acknowledging:)`, ioctl 지오메트리, 바운스 버퍼 I/O, `synchronize()`. 슬라이스는 디바이스를 닫은 뒤 생긴다 (F8). API 세부는 `slopdisk/README.md`와 F5~F8을 본다.
+    </prerequisite>
+    <prerequisite path="WIMLib/Prompts/10-swift-api.xml" state="pending">
+        보고서 `WIMLib/Prompts/10-swift-api.report.md`가 있어야 한다. 남기는 것: `WIMFile(path:)`, `images`(인덱스·이름·`WINDOWS/ARCH`·`WINDOWS/VERSION/*`), `extract(paths:fromImage:to:)`. 이름이 다르면 그 보고서와 코드를 따른다.
+    </prerequisite>
+    <prerequisite path="NTFS3G/Prompts/20-remove.xml" state="pending">
+        보고서 `NTFS3G/Prompts/20-remove.report.md`가 있어야 한다. 남기는 것: `NTFSVolume.removeItem(_:)`. CA 2023 옵션(§9)에만 쓰인다.
+    </prerequisite>
+
+    <decisions source="user">
+        다시 묻지 말 것. 1~16은 `Prompts/00-metainit.xml`의 번호를 그대로 쓰고 요지만 적었다. 이유와 대가는 거기 있다. 17부터는 2026-09-30 인터뷰에서 확정했다.
+
+        - 결정 1. UEFI 전용. BIOS 부팅 없음.
+        - 결정 2. GPT. 파티션 1 = NTFS(Microsoft Basic Data), 파티션 2 = UEFI:NTFS FAT(디스크 맨 끝). FAT에는 UEFI:NTFS 로더와 NTFS 드라이버만 넣는다.
+        - 결정 4. NTFS 볼륨은 NTFS3G가 슬라이스 디바이스(`/dev/rdiskNs1`)를 직접 포맷하고 마운트 없이 채운다.
+        - 결정 7. CLI 서브커맨드는 `make`(실디스크)와 `build`(이미지 파일). `write`는 없다.
+        - 결정 8. `--imgsize`는 `build` 전용, SI 단위 (`1G` = 10^9). 기본값은 결정 25.
+        - 결정 10·12·22. `slopdisk/`, `NTFS3G/`, `WIMLib/`는 이 작업에서 수정하지 않는다.
+        - 결정 11. README.md는 영문.
+        - 결정 13. SlopDisk가 대상 디바이스에 GPT를 직접 쓴다. `make`는 `/dev/rdiskN`, `build`는 sparse 파일을 `hdiutil attach -nomount -imagekey diskimage-class=CRawDiskImage`로 붙여 얻은 `/dev/rdiskN`. 그 뒤 경로는 같다.
+        - 결정 14. 파티션 내용은 슬라이스에 직접 만든다. FAT는 `newfs_msdos` + 마운트 + 복사. U11(rdisk 정렬)이 실패하면 멈추고 보고한다. 폴백 후보: `/dev/diskNs1`(버퍼드)을 NTFS3G에 준다 / NTFS3G에 bounce buffer 디바이스 연산을 더한다 / 임시 파티션 이미지 + 순차 복사. 사용자가 고른다.
+        - 결정 15. NTFS 파티션은 GPT와 FAT를 뺀 나머지 전부. `build`의 기본 이미지 크기는 결정 25.
+        - 결정 16. `make`는 ISO 마운트부터 검증까지 전체를 root로 실행하고 인증 다이얼로그는 한 번. `build`는 승격하지 않는다.
+        - 결정 17. GUI는 `make` 전용이다. `build`는 CLI로만 제공한다. (Figma 설계 메모, F30)
+        - 결정 18. 옵션은 셋이다: 볼륨 레이블(기본값 ISO 레이블), 쓰기 후 내용 검증(기본 켬), Windows UEFI CA 2023 서명 부트로더 사용(25H2 이상 ISO에서만 활성). (Figma, F30)
+        - 결정 19. 권한 수단은 SMAppService로 등록하는 root launchd 데몬 + XPC. 쓰기마다 Authorization Services의 전용 right로 관리자 인증 다이얼로그를 띄운다. 앱 샌드박스는 끈다. hardened runtime은 유지한다. CLI는 `sudo`로 실행한다.
+            - 배제: `AuthorizationExecuteWithPrivileges`(deprecated), osascript `with administrator privileges`, `authopen`(파이프라인 전체를 덮지 못함).
+        - 결정 20. 모듈 구성: 저장소 루트의 SwiftPM 패키지 `SnakeStickCore/`에 라이브러리 `SnakeStickCore`와 실행 파일 `snakestick`을 둔다. `../slopdisk`, `../NTFS3G`, `../WIMLib`을 로컬 패키지 의존으로 쓴다. Xcode 프로젝트는 앱과 헬퍼 데몬 타깃을 갖고 `SnakeStickCore`를 로컬 패키지로 참조한다.
+            - 배제: Xcode 프로젝트 안의 프레임워크·CLI 타깃.
+        - 결정 21. 자동 마운트 차단은 DiskArbitration 승인 콜백이다. 파이프라인 프로세스가 `DASession`을 열고 `DARegisterDiskMountApprovalCallback`으로 대상 디스크와 그 슬라이스의 마운트를 작업 동안 거부한다. 시작 전 `diskutil unmountDisk force`. FAT 슬라이스는 우리가 `diskutil mount -mountPoint`로 열며, 그 요청만 콜백이 허용한다.
+            - 배제: `DADiskClaim`, 언마운트만 하고 방치.
+        - 결정 22. WIM 처리는 wimlib(LGPL-3.0-or-later)을 무수정 서브모듈로 두는 `WIMLib/` 패키지가 맡는다. 별도 지시서 `WIMLib/Prompts/10-swift-api.xml`로 구현하며 이 작업의 선행 조건이다. 결정 9의 "wimlib을 쓰지 않는다"는 뒤집혔다 (분할이 아니라 추출에 쓴다).
+        - 결정 23. UEFI:NTFS 파티션: GPT 타입 EFI System Partition, GPT 이름 `UEFI:NTFS`, FAT 볼륨 레이블 `UEFI_NTFS`, 크기 1 MiB. Rufus와 같다 (F20~F22).
+        - 결정 24. UEFI:NTFS 바이너리는 서명본 네 파일을 저장소에 번들한다: uefi-ntfs v2.8의 `bootx64_signed.efi`·`bootaa64_signed.efi`, pbatard/ntfs-3g 드라이버 1.9의 `ntfs_x64_signed.efi`·`ntfs_aa64_signed.efi` (F21). 버전·출처 URL·SHA-256·라이선스를 적은 파일과 갱신 스크립트를 둔다. exFAT 드라이버와 ia32·arm32는 넣지 않는다.
+        - 결정 25. `build`의 기본 이미지 크기 = `NTFSVolume.estimatedVolumeSize` + FAT 1 MiB + GPT 앞뒤 + 정렬 여유. 추가 여유분은 없다. 더 큰 이미지는 `--imgsize`로.
+        - 결정 26. UI 문자열은 String Catalog로 둔다. 개발 언어(기본)는 영어, `ko` 번역은 Figma 문구 그대로 (`code#strings`). CLI 출력은 영어 전용.
+        - 결정 27. 커밋은 종단 적첩 단위로 나눈다 (`<closing>`).
+        - 결정 28. CA 2023 옵션이 NTFS 볼륨의 파일을 덮어쓰기 위해 NTFS3G에 `removeItem(_:)`을 추가한다. 별도 지시서 `NTFS3G/Prompts/20-remove.xml`로 구현하며 이 작업의 선행 조건이다.
+            - 배제: ISO 전체를 임시 복사해 오버레이, copyTree에 제외 목록 추가.
+    </decisions>
+
+    <decisions source="planner">
+        - P1. 앱 타깃의 Swift 언어 모드는 6이다 (`SWIFT_VERSION = 6.0`). `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`와 `SWIFT_APPROACHABLE_CONCURRENCY = YES`는 그대로 둔다 (F1). 패키지는 tools 6.4, `ApproachableConcurrency` 켬 (slopdisk·NTFS3G와 같다).
+        - P2. 배포 대상: 앱과 헬퍼는 프로젝트의 현재 값(F1, macOS 26.6)을 유지한다. 14 미만으로 내리지 않는다 (Swift XPC API, P9). `SnakeStickCore` 패키지는 macOS 14.
+        - P3. ISO는 `hdiutil attach -readonly -nobrowse -plist -mountpoint <dir> <iso>`로 마운트한다. 자체 UDF 리더는 만들지 않는다. 마운트 지점이 NTFS3G `copyTree`의 원본이다.
+        - P4. 임시 디렉터리는 `/tmp/snakestick-<uid>-<UUID>/`이고 그 아래 `iso/`(ISO 마운트 지점), `efi/`(FAT 슬라이스 마운트 지점), `wim/`(추출한 부트로더)를 둔다. 작업이 끝나거나 실패·취소되면 역순으로 정리한다 (§11).
+        - P5. 볼륨 레이블 기본값은 ISO 9660 PVD의 볼륨 식별자다 (LBA 16, 오프셋 40, 32바이트, 뒤 공백 제거). `hdiutil` 출력에 의존하지 않는다. NTFS 레이블 규칙(32 UTF-16 유닛, 금지 문자)은 NTFS3G가 검사하므로 GUI는 입력을 그대로 넘기고 에러를 표시한다.
+        - P6. ISO 정보(Figma "Windows 11 25H2 · x64 · 7.21 GB")는 `sources/boot.wim`의 XML에서 읽는다 (WIMLib). 이미지 2(Setup)의 `WINDOWS/ARCH`(9 = x64, 12 = ARM64, 0 = x86)와 `WINDOWS/VERSION/BUILD`를 쓴다. 빌드 → 이름 표: 26200 = "Windows 11 25H2", 26100 = "24H2", 22631 = "23H2", 22621 = "22H2", 22000 = "21H2", 19045 = "Windows 10 22H2", 19044 = "21H2". 표에 없으면 "Windows 11 (build N)"처럼 빌드 번호를 보인다. MAJOR 10에 BUILD ≥ 22000이면 Windows 11로 본다. 크기는 ISO 파일 크기 (`ByteCountFormatter`, `.file`).
+        - P7. CA 2023 옵션은 BUILD ≥ 26200일 때만 활성이다 (F24: 24H2는 호환되지 않는다). 옵션의 절차는 Rufus를 따른다 (F23): boot.wim 이미지 2에서 `Windows/Boot/EFI_EX/`와 `Windows/Boot/Fonts_EX/`를 추출하고, copyTree 뒤에 NTFS 볼륨의 `/efi/boot/boot<arch>.efi` ← `bootmgfw_EX.efi`, `/bootmgr.efi` ← `bootmgr_EX.efi`, `/efi/microsoft/boot/fonts/<name>.ttf` ← `Fonts_EX/<name>_EX.ttf`로 덮어쓴다 (`removeItem` + `writeFile(from:)`). 추출에 실패하면 옵션을 무시하지 않고 에러로 끝낸다 (Rufus는 무시하지만 사용자가 켠 옵션이 조용히 빠지면 안 된다).
+        - P8. 대상 디스크 후보 (Q6): DiskArbitration으로 whole media(`DAMediaWhole`)만 나열하고, `DADeviceInternal == false` 또는 `DAMediaRemovable == true`인 것만 남긴다. 루트 볼륨(`/`)과 `/System/Volumes/Data`가 속한 whole disk, `DAMediaKind`가 이미지·가상인 것은 제외한다. 이 규칙은 앱과 CLI 양쪽, 그리고 헬퍼 데몬 안에서 다시 검사한다 (결정 16의 대가). 후보의 표시: 모델명(`DADeviceVendor` + `DADeviceModel`), 크기(SI), BSD 이름, 프로토콜(`DADeviceProtocol`), 파티션 수와 볼륨 이름·파일시스템. 필요 공간보다 작은 후보는 비활성으로 보이고 사유를 붙인다 (C10).
+        - P9. XPC는 Swift API(`XPCListener` / `XPCSession`, Codable 메시지, macOS 14+)를 우선한다. 피어 코드서명 요구(같은 Team ID, 앱 번들 ID)는 리스너에 건다. Swift API로 launchd `MachServices` 리스너나 피어 요구를 걸 수 없으면 `NSXPCConnection` + `setCodeSigningRequirement`로 바꾸되 보고서에 적는다.
+        - P10. 인증: 앱이 `AuthorizationCreate` → `AuthorizationCopyRights`(right `pl.unstabler.aislop.SnakeStick.write`, `interactionAllowed | extendRights | preAuthorize`)로 다이얼로그를 띄우고, `AuthorizationMakeExternalForm`으로 데몬에 넘긴다. 데몬은 `AuthorizationCreateFromExternalForm` + `AuthorizationCopyRights`(interaction 없이)로 검증한 뒤에만 파이프라인을 시작한다. right가 정책 DB에 없으면 데몬이 시작 시 `AuthorizationRightSet`으로 `kAuthorizationRuleAuthenticateAsAdmin`을 등록한다. 다이얼로그에 Touch ID가 뜨는지는 U1이다.
+        - P11. 슬라이스 검증(C17)은 IOKit으로 한다: `IOBSDNameMatching`으로 `diskNsK`의 `IOMedia`를 찾아 `Base`(바이트 오프셋), `Size`, `Preferred Block Size`, 부모 whole disk의 BSD 이름을 읽고 SlopDisk가 돌려준 `SDPartition.byteOffset`·`size`와 비교한다. 슬라이스가 아직 없으면 최대 10초 동안 0.2초 간격으로 폴링한다 (F8: hdiutil 디바이스에서 약 0.6초).
+        - P12. 검증(단계 8, 옵션이 켜진 경우): NTFS3G 읽기 전용으로 슬라이스를 열어 ISO 트리와 이름·종류·크기·바이트 내용을 비교한다 (CA 2023으로 바꾼 파일은 추출본과 비교). FAT 슬라이스는 읽기 전용으로 마운트해 네 파일의 SHA-256을 비교한다. GPT는 SlopDisk 읽기 전용으로 열어 `.gpt(.healthy)`와 파티션 둘의 타입·범위를 확인한다. 옵션이 꺼져 있어도 GPT와 FAT 확인은 한다 (수 초).
+        - P13. 범위 밖: Windows 11 요구사항 우회, 무인 설치 파일, 드라이버 주입, Secure Boot 인증서 설치(Mosby 등). README의 NON-GOALS에 적는다.
+        - P14. CLI `make`는 root가 아니면 exit 77(`EX_NOPERM`)로 끝내며 `sudo`를 안내한다. 대상 확인은 후보 정보를 보여 주고 BSD 이름(`disk4`)을 그대로 입력받는 방식이다. `--yes`가 있으면 입력을 생략한다. 단, P8의 자격 검사는 `--yes`로도 건너뛰지 못한다.
+        - P15. 진행 단계는 Figma의 8단계다 (`code#pipeline`). 단계 6의 남은 시간은 그 단계의 처리량(최근 10초 이동 평균)으로만 추정한다. 다른 단계는 남은 시간을 보이지 않는다.
+        - P16. 취소: 코어는 `Task` 취소를 본다. copyTree는 progress 클로저에서 `CancellationError`를 던져 끊는다 (F13). SlopDisk 커밋과 mkntfs는 짧으므로 끊지 않고 끝난 뒤 멈춘다. 취소·실패 뒤 대상은 정리(§11)만 하고 복구하지 않는다. 시안 문구대로 "부팅할 수 없는 상태"로 남는다.
+        - P17. 로그: 코어는 단계 전환, 실행한 외부 명령과 종료 코드, 에러를 이벤트로 낸다. 앱은 이것을 모아 "로그 보기..." 창에 보이고 `os_log`에도 남긴다. CLI는 `--verbose`일 때 stderr에 그대로 낸다.
+        - P18. 헬퍼 데몬은 앱 번들의 `Contents/MacOS/SnakeStickHelper`에 있고 launchd plist는 `Contents/Library/LaunchDaemons/pl.unstabler.aislop.SnakeStick.helper.plist`다 (`BundleProgram`, `MachServices`, `AssociatedBundleIdentifiers`). 등록은 `SMAppService.daemon(plistName:)`으로 하며, 처음에는 사용자가 시스템 설정 > 로그인 항목에서 허용해야 한다. 앱은 `status`를 보고 `.requiresApproval`이면 안내와 함께 `SMAppService.openSystemSettingsLoginItems()`를 제공한다.
+        - P19. `build`는 앱에 없으므로 데몬을 거치지 않는다. CLI `build`는 프로세스 안에서 코어를 직접 부른다. CLI `make`도 root로 실행되므로 데몬 없이 코어를 직접 부른다. 데몬은 앱의 `make`에만 쓰인다. 코어의 코드 경로는 셋이 같다.
+        - P20. 종료 코드(CLI): 0 성공, 64 사용법, 65 ISO가 유효하지 않음, 66 입력 파일 없음, 69 대상 디스크 자격 없음·공간 부족, 74 I/O, 77 root 필요, 130 취소(SIGINT). sysexits.h를 따른다.
+        - P21. 완료 화면의 "추출"은 앱이 `DADiskEject`로 한다 (데몬이 아니라 앱, 비root로 가능). "완료"는 02 상태로 돌아간다.
+    </decisions>
+
+    <findings>
+        플래너가 2026-09-30에 확인한 것. 출처를 적었다. 다시 조사하지 않는다.
+
+        ## 저장소·빌드 설정
+        - F1. `SnakeStick/SnakeStick.xcodeproj/project.pbxproj`: `ENABLE_APP_SANDBOX = YES`(375행), `ENABLE_HARDENED_RUNTIME = YES`(376), `MACOSX_DEPLOYMENT_TARGET = 26.6`(300), `SWIFT_VERSION = 5.0`(394), `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`(391), `SWIFT_APPROACHABLE_CONCURRENCY = YES`(390), `PRODUCT_BUNDLE_IDENTIFIER = pl.unstabler.aislop.SnakeStick`(386), `DEVELOPMENT_TEAM = XHA76UVA95`(281), `CODE_SIGN_STYLE = Automatic`(371). entitlements 파일은 없다. 앱 소스는 템플릿 상태(`SnakeStickApp.swift`, `ContentView.swift`)다. (grep, find)
+        - F2. `SnakeStick.xcworkspace/contents.xcworkspacedata`는 `SnakeStick/SnakeStick.xcodeproj`, `slopdisk`, `NTFS3G`를 참조한다. 앱 타깃은 어느 패키지도 링크하지 않는다. (cat, grep)
+        - F3. `.gitmodules`에는 `NTFS3G/Vendor/ntfs-3g`(https://github.com/tuxera/ntfs-3g.git)만 있다. 저장소 루트에 `README.md`가 있고 `CLAUDE.md`는 없다. (cat, ls)
+        - F4. `slopdisk/Package.swift`, `NTFS3G/Package.swift` 모두 swift-tools-version 6.4, `platforms: [.macOS(.v13)]`, `ApproachableConcurrency`. 제품은 각각 라이브러리 `SlopDisk`(+실행 파일 `sdinspect`), `NTFS3G`. (cat)
+
+        ## SlopDisk (slopdisk 10·20 보고서, README, 소스)
+        - F5. 공개 API: `SDRawDevice(path:acknowledging: .dataLossRisk)`, `SDRawDevice(readOnlyPath:)`, `SDDisk(device:ignoringExistingTable:)`, `disk.withTransaction { txn in ... }`, `txn.clear(diskID:)`, `txn.addPartition(_ extent: SDPartitionExtent, type:label:attributes:at startLBA: UInt64?, uniqueID:) -> SDPartition`, `txn.resizePartition(_:to:) -> SDPartition`, `txn.commit()`. `SDPartitionExtent`는 `.size(SDSize)` 또는 `.remaining`. `SDPartitionType.efiSystem`, `.microsoftBasicData`. `SDPartitionAttributes.msNoDriveLetter` 등. `SDPartition`: `index`(엔트리 슬롯, 0부터), `begin`/`end`(LBA, end 포함), `byteOffset`, `size`, `sectorSize`. (`slopdisk/Sources/SlopDisk/SDTransaction.swift`, `Model/SDPartition.swift`, README)
+        - F6. 배치 규칙: `startLBA` 없이 추가하면 1 MiB 정렬된 첫 빈 구간(first-fit)에 들어가고, `.remaining`은 그 구간 끝(LastUsableLBA)까지 차지한다. `startLBA`를 주면 정렬 없이 그 LBA를 포함하는 빈 구간에 들어가야 한다. `resizePartition(_, to: .size(...))`은 begin을 고정하고 end를 옮기며, 다음 파티션과 겹치면 `.overlapsExistingPartition`. 슬롯은 가장 낮은 빈 번호를 받는다. (`SDTransaction.swift:48~83, 115~150`, README "Placement")
+        - F7. `SDSize.megabytes(n)` 등은 **2진**(1024 기반)이다. `SDSize.bytes(n)`으로 정확한 바이트를 줄 수 있다. (README "Types", `SDSize.swift`)
+        - F8. 20 보고서 §1-3·§5의 실측 (hdiutil로 붙인 이미지 디바이스): `/dev/rdiskN`·`/dev/rdiskNs1`은 오프셋·길이가 섹터 배수가 아닌 `pread`/`pwrite`에 EINVAL이고 버퍼 주소 정렬은 요구하지 않았다. `/dev/diskN`(버퍼드)은 `fsync` 전까지 쓰기가 백킹에 닿지 않았다. SDRawDevice로 commit하고 해제하면 슬라이스가 생기고 `hdiutil info`에 나타났다 (RT7, 약 0.6초). `-nomount`로 붙인 이미지에서는 GPT 쓰기와 `newfs_msdos` 뒤 6초 동안 자동 마운트가 없었다. `flock`은 `/dev/diskN`과 `/dev/rdiskN`에서 서로 독립이고 `newfs_msdos`·mkntfs는 잠금을 걸지 않는다.
+        - F9. 20 보고서 §2: 실제 USB 매체, 4Kn, 권한 상승 경로로 넘긴 fd는 확인되지 않았다.
+
+        ## NTFS3G (10 보고서, README, 소스)
+        - F10. 공개 API: `NTFSVolume.format(path:options: NTFSFormatOptions)`(`label`, `clusterSize` 기본 4096, `sectorSize` 기본 512, `partitionStartSector` 기본 0), `NTFSVolume(path:mode: .readOnly | .readWrite)`, `copyTree(from: URL, to: String = "/", progress: ((NTFSCopyProgress) throws -> Void)?) -> NTFSCopySummary`, `NTFSVolume.estimatedVolumeSize(forTreeAt: URL, clusterSize: Int = 4096) -> Int64`, `contentsOfDirectory`, `attributesOfItem`, `readFile`, `writeFile(from:)`, `createDirectory`, `close()`, `totalBytes`, `freeBytes`. (`NTFS3G/Sources/NTFS3G/*.swift`의 public 선언, README SYNOPSIS)
+        - F11. `format(path:)`는 경로에 `stat`만 하고 일반 파일인지 검사하지 않으며 mkntfs에 `-F -Q -q -s <sectorSize> -p <partitionStartSector> -H 255 -S 63 -c <clusterSize> [-L label]`을 넘긴다. 대상은 최종 크기로 존재해야 한다. mkntfs는 프로세스 안에서 돌고 호출은 직렬화된다. (`NTFSVolume.swift:120~160`)
+        - F12. libntfs-3g는 Darwin에서 디바이스 크기를 `DKIOCGETBLOCKCOUNT`, 섹터 크기를 `DKIOCGETBLOCKSIZE`로 읽는다. 기본 I/O(unix_io)는 정렬 없이 `pread`/`pwrite`다. 문자 디바이스를 읽기·쓰기로 열 때 `O_EXCL`을 더하고 `fcntl` 레코드 잠금을 건다. (`NTFS3G/Vendor/ntfs-3g/libntfs-3g/device.c:582, 876`, `unix_io.c:117~175, 301, 323`)
+        - F13. `copyTree`의 progress 클로저가 던지면(`CancellationError` 포함) copyTree가 그 에러로 끝난다. 이름은 NFC로 저장된다. 심볼릭 링크·특수 파일은 쓰기 전 스캔에서 거부된다. `estimatedVolumeSize`는 1 MiB 배수의 상한이며 픽스처와 4 GiB 초과 파일로 충분함이 확인되었다. (10 보고서 "ensure → 테스트 대응표", "크기 추정")
+        - F14. macOS 26의 FSKit NTFS 드라이버는 ntfs-3g로 만든 볼륨을 root 없이 읽기 전용으로 마운트하지만, NFD로 저장된 이름은 열지 못한다(NTFS3G는 NFC로 저장하므로 문제없다). (10 보고서 "멈추고 보고한 지점 4", 00-metainit F12)
+        - F15. NTFS3G 10 보고서 "확인하지 못한 것": Windows가 POSIX 네임스페이스 이름만 있는 볼륨을 읽는지(U8), `chkdsk`, 실제 Windows ISO로의 실행, ENOSPC 경로, Xcode 빌드(`override/config.h`의 DEBUG 처리는 SwiftPM에서만 확인).
+
+        ## UEFI:NTFS, Rufus (웹·GitHub API)
+        - F20. uefi-ntfs v2.8 릴리스 자산: `bootx64_signed.efi` 31,888 B, `bootaa64_signed.efi` 42,512 B, `bootia32_signed.efi` 30,288 B, 그리고 미서명 `bootx64.efi`, `bootaa64.efi`, `bootarm.efi`, `bootia32.efi`, `bootloongarch64.efi`, `bootriscv64.efi`. (`gh api repos/pbatard/uefi-ntfs/releases/latest`)
+        - F21. pbatard/ntfs-3g 드라이버 1.9 릴리스 자산 중 서명본: `ntfs_x64_signed.efi` 173,584 B, `ntfs_aa64_signed.efi` 169,488 B, `ntfs_ia32_signed.efi` 163,152 B. (`gh api repos/pbatard/ntfs-3g/releases/latest`)
+        - F22. UEFI:NTFS README: 로더는 FAT 파티션의 `/efi/boot/boot{ia32,x64,arm,aa64}.efi`에 있고 NTFS 드라이버는 `/efi/boot/ntfs_x64.efi`식 이름으로 같은 디렉터리에 둔다. 로더는 드라이버를 올리고 같은 매체의 NTFS 파티션을 찾아 그 안의 부트 파일로 체인한다. GPLv2. x86_64·x86_32·ARM64 서명, arm32 미서명. Rufus의 `uefi-ntfs.img`는 `dd bs=512 count=2048`(1 MiB) + `mkfs.vfat -n RUFUS_BOOT`로 만들었고 로더 2.8, ntfs-3g 드라이버 1.9, EfiFs exFAT 1.12를 담는다. (https://github.com/pbatard/uefi-ntfs README, https://github.com/pbatard/rufus/blob/master/res/uefi/readme.txt)
+        - F23. Rufus `src/wue.c` 1121~1416행: CA 2023 옵션은 `sources\boot.wim` 이미지 2에서 `Windows\Boot\EFI_EX`와 `Windows\Boot\Fonts_EX`를 wimlib으로 추출하고(`WIMLIB_EXTRACT_FLAG_NO_ACLS | NO_PRESERVE_DIR_STRUCTURE`), `Fonts_EX\<name>_EX.*` → `efi\microsoft\boot\fonts\<name>.*`, `EFI_EX\bootmgfw_EX.efi` → `efi\boot\boot<arch>.efi`(있는 첫 아키텍처), `EFI_EX\bootmgr_EX.efi` → `bootmgr.efi`로 복사한다. 추출 실패 시 Rufus는 옵션을 무시한다. (raw.githubusercontent.com, 2026-09-30)
+        - F24. Rufus FAQ: CA 2023 옵션은 Windows 11 25H2 ISO에서만 동작한다 ("Windows 11 24H2 ISOs will not work"). Rufus 3.17 이후 UEFI:NTFS는 Secure Boot 서명본이다. (https://github.com/pbatard/rufus/wiki/FAQ)
+        - F25. Rufus `src/drive.c`: UEFI:NTFS 파티션의 GPT 이름은 `UEFI:NTFS`(2418행), 크기는 `uefi-ntfs.img` 크기(2419), MBR에서는 타입 0xEF(2500~2504). FAT 레이블 `UEFI_NTFS` 또는 `RUFUS_BOOT`로 인식한다(1997). GPT 타입 GUID를 정하는 줄은 읽지 않았다 (U7).
+
+        ## macOS
+        - F26. raw 이미지는 `hdiutil attach -imagekey diskimage-class=CRawDiskImage`로 붙인다 (`man hdiutil`). 비root·샌드박스에서 `-nomount` attach가 되고 생성된 `/dev/rdiskN`은 호출 사용자 소유라 O_RDWR로 열린다. `newfs_msdos -F 32`와 `fsck_msdos -n`이 슬라이스에서 root 없이 성공했다. (slopdisk 20 F8·F9, RT7)
+        - F27. `/usr/libexec/authopen`이 있다 (결정 19로 쓰지 않는다). (ls)
+        - F28. 이 머신: macOS 26 (Darwin 25.6.0, arm64), Apple Swift 6.4, Xcode의 MacOSX SDK에 `usr/include/libxml2`와 `usr/lib/libxml2.tbd`가 있다. (uname, swift --version, ls)
+
+        ## Figma
+        - F30. 시안 파일 https://www.figma.com/design/jfvNzZEt5oagWQ6dEqkNGF/SnakeStick (fileKey `jfvNzZEt5oagWQ6dEqkNGF`). 섹션 `SnakeStick — macOS GUI`(node `11:534`)에 프레임 `01 대기 — 선택 전`(`12:679`), `02 대기 — 준비됨`(`12:581`), `02b 대기 — 대상 디스크 메뉴`(`12:793`), `03 삭제 확인`(`13:922`), `04 진행 중`(`1:2`), `05 취소 확인`(`14:1104`), `06 완료`(`14:1156`), `07 오류`(`14:1263`), `Notes`(`15:1082`). 섹션 `Components`(`8:535`): `Icon/opticaldisc`, `Icon/externaldrive`, `Icon/checkmark.circle.fill`, `Icon/xmark.octagon.fill`, `Icon/exclamationmark.triangle.fill`, `Media Label`, `Option Row`, `Progress Panel`. 창 480 × 580. 폼은 `Source`(원본 ISO) / `Target`(대상 디스크) / `Options`(옵션) 그룹 박스, 아래 `Progress Panel`, 맨 아래 `Actions`(왼쪽 보조 버튼 자리, 오른쪽 취소·주 버튼). 시안의 Inter 폰트는 SF Pro의 대역이고 아이콘은 SF Symbols다 (Notes "설계 메모"). (Figma MCP `get_metadata`, `get_screenshot`, 2026-09-30)
+    </findings>
+
+    <unverified>
+        실행자가 실기로 확인하고 보고서의 "확인한 것" 또는 "확인하지 못한 것"에 적는다. 전제로 삼지 않는다.
+
+        - U1. Authorization Services 다이얼로그(`kAuthorizationRuleAuthenticateAsAdmin`)에 Touch ID 옵션이 뜨는지.
+        - U2. SMAppService로 등록한 데몬이 Xcode DerivedData에서 실행한 개발 빌드에서도 동작하는지, 재빌드 뒤 재등록이 필요한지.
+        - U3. libntfs-3g unix_io가 `/dev/rdiskNs1`(문자 디바이스)에서 동작하는지 (F8·F12). 실패하면 결정 14의 폴백을 사용자에게 묻는다.
+        - U4. unix_io의 `O_EXCL`과 `fcntl` 잠금이 macOS 디바이스 노드에서 에러 없이 통하는지 (F12).
+        - U5. 실제 USB 스틱에서 SlopDisk 커밋 → 닫기 → 슬라이스 생성 시점, DiskArbitration의 자동 마운트 시도 여부와 승인 콜백의 효과 (F8은 hdiutil 디바이스 기준).
+        - U6. USB 스틱에 `copyTree`로 직접 쓸 때의 처리량. 느리면 결정 14 폴백의 판단 재료다.
+        - U7. Rufus가 GPT에서 UEFI:NTFS 파티션에 주는 타입 GUID (F25). 결정 23은 ESP로 확정했으므로 구현에는 영향이 없고, 보고서에 참고로 적는다.
+        - U8. `newfs_msdos`가 1 MiB 슬라이스를 받아 FAT12를 만드는지, 로더·드라이버 네 파일(약 420 KB)이 들어가는지.
+        - U9. 쓰기 가능으로 마운트한 FAT 슬라이스에 macOS가 `.fseventsd`·`.Spotlight-V100`·`.Trashes`를 만드는지, 언마운트 전 삭제가 유지되는지 (C6).
+        - U10. `hdiutil`로 붙인 sparse 이미지에 전체 파이프라인을 돌린 뒤 파일이 sparse로 남는지 (`du` vs `ls -l`).
+        - U11. mkntfs `-F`가 `/dev/rdiskNs1`에서 크기를 올바르게 읽고 (F12) 그 볼륨을 FSKit이 읽는지.
+        - U12. 실제 UEFI 펌웨어에서의 부팅, Windows 설치 프로그램의 동작, `chkdsk` (F15). 이 머신에서는 할 수 없다.
+        - U13. `hdiutil makehybrid -udf -iso`로 만든 테스트 ISO가 `hdiutil attach -readonly`로 마운트되고 트리가 보존되는지 (§15).
+        - U14. Swift XPC API(`XPCListener`)가 launchd `MachServices` 리스너와 피어 코드서명 요구를 지원하는지 (P9).
+    </unverified>
+
+    <reference>
+        먼저 읽을 것.
+        - `Prompts/00-metainit.xml` — 결정의 이유와 대가, 폐기된 결정의 기록. 이 지시서와 어긋나면 이 지시서가 우선한다.
+        - `slopdisk/README.md`, `slopdisk/Prompts/20-raw-device.report.md` §1-3·§5 — SDRawDevice의 실측 동작.
+        - `NTFS3G/README.md`, `NTFS3G/Prompts/10-swift-api.report.md` — API와 "발견한 것".
+        - `WIMLib/Prompts/10-swift-api.report.md`, `NTFS3G/Prompts/20-remove.report.md` — 선행 조건이 남긴 이름.
+        - `SnakeStick/SnakeStick.xcodeproj/project.pbxproj` — 앱 빌드 설정 (F1).
+        - Figma 시안 (F30) — `get_design_context`로 프레임별 세부(색·간격·문구)를 읽는다. 문구는 `code#strings`에도 있다.
+        - 안전 규칙: `slopdisk/CLAUDE.md`의 디바이스 경로 규칙을 이 저장소의 `CLAUDE.md`에도 옮긴다 (C20).
+    </reference>
+
+    <figma>
+        Figma Notes 패널(F30)에서 옮긴 시안의 규칙. 구현은 이것을 따른다.
+
+        ## 상태와 버튼
+        - 01 선택 전: ISO와 대상이 모두 있어야 "쓰기 시작"이 켜진다. "취소"는 꺼져 있다. CA 2023 옵션은 25H2 이상 ISO를 고르기 전까지 꺼져 있다. 진행 패널은 "ISO 파일과 대상 디스크를 선택하세요", 진행 막대 0.
+        - 02 준비됨: 진행 패널에 "쓰기 준비가 되었습니다"와 "필요 X GB / Y GB"(필요 공간, 대상 용량). 볼륨 레이블에 ISO 레이블이 채워진다. ISO 행에 이름과 "Windows 11 25H2 · x64 · 7.21 GB". 대상 행 아래에 "disk4 · USB 외장 디스크 · 파티션 1개 (ExFAT "UNTITLED")".
+        - 02b 대상 디스크 메뉴: 헤더 "외장 디스크". 외장·이동식 디스크만 나열한다. 필요 공간보다 작은 디스크는 비활성으로 두고 "· 공간 부족"을 붙인다. 맨 아래 비활성 항목 "내장 디스크와 시동 디스크는 표시하지 않습니다". 항목 형식 "모델 — 크기 (diskN)".
+        - 03 삭제 확인: 시트. 제목 ""모델"을 지울까요?", 본문에 diskN·용량·되돌릴 수 없음·관리자 암호를 한 번 묻는다는 안내. "지우고 쓰기"(destructive)를 누르면 인증 다이얼로그가 한 번 뜨고 파이프라인이 root로 돈다. "취소".
+        - 04 진행 중: 폼 전체 비활성. "취소"만 켜져 있다. 진행 패널에 "단계 N/8: <제목> — <경로>"와 오른쪽에 "약 N분 남음"(단계 6만), 진행 막대.
+        - 05 취소 확인: 시트. 기본 버튼은 "계속 쓰기", "중단"은 destructive. 중단하면 스틱은 부팅할 수 없는 상태로 남는다.
+        - 06 완료: 진행 패널에 초록 체크와 "완료했습니다 — 기록한 내용이 ISO와 일치합니다"(검증 껐으면 "완료했습니다"), 오른쪽에 걸린 시간. 버튼 "추출"(대상 디스크를 꺼낸다)과 "완료"(02로 돌아간다). 폼은 다시 켜진다.
+        - 07 오류: 진행 패널에 빨간 표시와 "단계 N/8에서 실패했습니다: <단계 이름>", 아래에 원인과 스틱의 상태. 왼쪽에 "로그 보기...", 오른쪽에 "다시 시도". "취소"는 숨긴다. 폼이 다시 켜져 다른 디스크를 고르거나 다시 시도할 수 있다.
+
+        ## 진행 단계 (단계 N/8 문구)
+        1. ISO를 열고 있습니다 — hdiutil attach, WIM 정보, estimatedVolumeSize.
+        2. 대상 디스크를 준비하고 있습니다 — root 블록 안에서 대상 재검증(P8), 언마운트, 승인 콜백 등록.
+        3. 파티션 테이블을 쓰고 있습니다 — SlopDisk 트랜잭션.
+        4. 파티션을 확인하고 있습니다 — 슬라이스의 부모·오프셋·크기 대조 (P11, C17).
+        5. NTFS 파티션을 포맷하고 있습니다 — NTFS3G format.
+        6. 파일을 복사하고 있습니다 — <경로> — copyTree. CA 2023이면 끝에 부트로더 교체.
+        7. UEFI:NTFS 부트 파티션을 준비하고 있습니다 — newfs_msdos, 마운트, 로더 복사, 언마운트.
+        8. 기록한 내용을 검증하고 있습니다 — P12. 검증 옵션이 꺼져 있어도 단계는 있고 GPT·FAT만 확인한다.
+
+        ## 설계 메모
+        - GUI는 make 전용이다. build는 CLI로만 제공한다.
+        - Inter는 SF Pro의 대역이다. 구현은 시스템 폰트를 쓴다. 아이콘은 SF Symbols(`opticaldisc`, `externaldrive`, `checkmark.circle.fill`, `xmark.octagon.fill`, `exclamationmark.triangle.fill`).
+        - 알림 시트와 메뉴 배경은 시스템 것을 쓴다. 시안의 색을 하드코딩하지 않는다.
+    </figma>
+
+    <code id="strings" lang="text/plain">
+        Figma 시안의 한국어 문구 (String Catalog의 ko 값, 결정 26). 영어 기본값은 실행자가 같은 뜻으로 쓴다. {…}는 치환 자리다.
+
+        창 제목                         SnakeStick
+        그룹 헤더                       원본 ISO / 대상 디스크 / 옵션
+        ISO 자리표시                    ISO 파일을 선택하세요
+        ISO 자리표시 부제               Windows 10·11 설치 ISO. 창에 끌어다 놓아도 됩니다.
+        ISO 선택 버튼                   선택...
+        ISO 부제                        {버전} · {아키텍처} · {크기}          예: Windows 11 25H2 · x64 · 7.21 GB
+        디스크 팝업 자리표시            디스크 선택
+        디스크 팝업 부제(선택 전)       외장·이동식 디스크만 표시됩니다
+        디스크 부제(선택 후)            {diskN} · {프로토콜} 외장 디스크 · 파티션 {n}개 ({파일시스템} "{볼륨 이름}")
+        디스크 메뉴 헤더                외장 디스크
+        디스크 메뉴 항목                {모델} — {크기} ({diskN})
+        디스크 메뉴 항목(부족)          {모델} — {크기} ({diskN}) · 공간 부족
+        디스크 메뉴 꼬리                내장 디스크와 시동 디스크는 표시하지 않습니다
+        볼륨 레이블 라벨                볼륨 레이블
+        볼륨 레이블 자리표시            ISO 레이블 사용
+        검증 옵션                       쓰기 후 내용 검증
+        검증 옵션 설명                  기록을 마친 뒤 스틱의 NTFS 볼륨을 다시 읽어 ISO의 파일 트리와 비교합니다.
+        CA 2023 옵션                    Windows UEFI CA 2023 서명 부트로더 사용
+        CA 2023 설명(비활성)            Windows 11 25H2 이상 ISO를 고르면 쓸 수 있습니다.
+        CA 2023 설명(활성)              2011 인증서를 폐기한 PC에서 Secure Boot를 켠 채로 부팅할 때 필요합니다. Windows 11 25H2 이상 ISO에서만 쓸 수 있습니다.
+        상태 01                         ISO 파일과 대상 디스크를 선택하세요
+        상태 02                         쓰기 준비가 되었습니다                오른쪽: 필요 {필요 크기} / {대상 크기}
+        상태 04                         단계 {n}/8: {단계 제목} — {경로}       오른쪽(단계 6): 약 {m}분 남음
+        상태 06                         완료했습니다 — 기록한 내용이 ISO와 일치합니다     오른쪽: {걸린 시간, 예 6분 12초}
+        상태 06(검증 끔)                완료했습니다
+        상태 07                         단계 {n}/8에서 실패했습니다: {단계 이름}
+        상태 07 본문 예                 sources/install.wim을 쓰는 중 입출력 오류가 났습니다 (EIO). 스틱이 분리되었거나 손상되었을 수 있습니다. 스틱은 지금 부팅할 수 없는 상태입니다.
+        버튼                            취소 / 쓰기 시작 / 추출 / 완료 / 로그 보기... / 다시 시도
+        시트 03 제목                    "{모델}"을 지울까요?
+        시트 03 본문                    {diskN}({크기})의 모든 파티션과 데이터가 지워지고 Windows 설치 디스크로 다시 만들어집니다. 되돌릴 수 없습니다. 계속하면 관리자 암호를 한 번 묻습니다.
+        시트 03 버튼                    지우고 쓰기 (destructive) / 취소
+        시트 05 제목                    쓰기를 중단할까요?
+        시트 05 본문                    지금 중단하면 "{모델}"은 부팅할 수 없는 상태로 남습니다. 다시 쓰려면 처음부터 시작해야 합니다.
+        시트 05 버튼                    계속 쓰기 (기본) / 중단 (destructive)
+        단계 제목 1~8                   ISO를 열고 있습니다 / 대상 디스크를 준비하고 있습니다 / 파티션 테이블을 쓰고 있습니다 / 파티션을 확인하고 있습니다 / NTFS 파티션을 포맷하고 있습니다 / 파일을 복사하고 있습니다 / UEFI:NTFS 부트 파티션을 준비하고 있습니다 / 기록한 내용을 검증하고 있습니다
+        단계 이름(오류용) 1~8           ISO 열기 / 대상 준비 / 파티션 테이블 / 파티션 확인 / NTFS 포맷 / 파일 복사 / 부트 파티션 / 검증
+    </code>
+
+    <code id="layout" lang="text/plain">
+        대상 = N 블록 (블록 크기는 디바이스에서 읽는다. 아래 LBA는 512 바이트 기준)
+
+        LBA 0              protective MBR
+        LBA 1              primary GPT header
+        LBA 2 ~ 33         partition entry array
+        2048 ~             partition 1 (/dev/rdiskNs1): Microsoft Basic Data, 이름 = 볼륨 레이블, NTFS. partition 2 시작 직전까지.
+        F ~ N-34           partition 2 (/dev/rdiskNs2): EFI System Partition, 이름 "UEFI:NTFS", FAT12, 1 MiB.  F = alignDown(N-33 - 2048, 2048)
+        LBA N-33 ~ N-2     backup partition entry array
+        LBA N-1            backup GPT header
+
+        4096 바이트 섹터면 2048 → 256, 33 → 5 (엔트리 배열 4 섹터 + 헤더 1). SlopDisk가 계산하므로 하드코딩하지 않는다 (code#partition).
+    </code>
+
+    <code id="core-api" lang="text/x-pseudocode; variant=swift+imagine">
+        // SnakeStickCore 공개 API. 이름은 계약이고 구현은 실행자가 채운다.
+        import SlopDisk    // ../slopdisk
+        import NTFS3G      // ../NTFS3G
+        import WIMLib      // ../WIMLib
+
+        @location('SnakeStickCore/Sources/SnakeStickCore/Model.swift')
+        public enum InstallerTarget: Sendable, Codable {
+            case device(bsdName: String)                       // "disk4". 코어가 /dev/rdisk4로 바꾼다.
+            case image(path: String, size: UInt64)             // build. 없는 파일을 sparse로 만든다.
+        }
+        public struct InstallerOptions: Sendable, Codable {
+            public var volumeLabel: String?                    // nil이면 ISOInfo.volumeLabel
+            public var verifyAfterWrite = true
+            public var useCA2023Bootloaders = false
+        }
+        public struct InstallerRequest: Sendable, Codable {
+            public var isoPath: String
+            public var target: InstallerTarget
+            public var options: InstallerOptions
+        }
+        public enum Phase: Int, Sendable, Codable, CaseIterable {   // Figma 8단계
+            case openISO = 1, prepareTarget, writePartitionTable, checkPartitions,
+                 formatNTFS, copyFiles, prepareBootPartition, verify
+        }
+        public struct Progress: Sendable, Codable {
+            public var phase: Phase
+            public var fraction: Double                         // 전체 진행 0…1. 단계별 가중치는 실행자가 정하되 단계 6이 대부분이다.
+            public var detail: String?                          // 단계 6의 현재 경로
+            public var estimatedRemaining: TimeInterval?        // 단계 6만 (P15)
+        }
+        public enum InstallerEvent: Sendable, Codable {
+            case progress(Progress)
+            case log(String)                                    // P17
+            case finished(InstallerResult)
+            case failed(InstallerError)
+        }
+        public struct InstallerResult: Sendable, Codable { public var elapsed: TimeInterval; public var verified: Bool }
+        public struct InstallerError: Error, Sendable, Codable {
+            public var phase: Phase
+            public var message: String                          // 사용자용 (code#strings 상태 07 본문 형식)
+            public var underlying: String                       // 개발자용 (에러 타입과 errno)
+            public var targetState: String                      // "부팅할 수 없는 상태" 등
+        }
+
+        @location('SnakeStickCore/Sources/SnakeStickCore/ISOInfo.swift')
+        public struct ISOInfo: Sendable, Codable {
+            public var volumeLabel: String                      // P5
+            public var fileSize: UInt64
+            public var windowsVersion: String                   // P6, "Windows 11 25H2"
+            public var build: Int
+            public var architecture: String                     // "x64" | "ARM64" | "x86"
+            public var supportsCA2023: Bool                     // build >= 26200 (P7)
+            public var requiredBytes: UInt64                    // estimatedVolumeSize + FAT + GPT + 정렬 (결정 25)
+        }
+        imagine func inspectISO(at path: String) async throws -> ISOInfo {
+            requirements(`
+                PVD에서 레이블을 읽고(P5), hdiutil로 마운트해(P3) sources/boot.wim의 XML(P6)과 estimatedVolumeSize를 얻은 뒤 detach한다.
+                boot.wim이 없거나 마운트가 실패하면 InstallerError(phase: .openISO)를 던진다.
+            `);
+            ensure(`§15의 테스트 ISO에서 volumeLabel == "SNAKETEST", build == 26200, architecture == "x64", supportsCA2023 == true`);
+            ensure(`빈 파일 → throws, 메시지에 "not a Windows ISO"`);
+        }
+
+        @location('SnakeStickCore/Sources/SnakeStickCore/DiskCandidates.swift')
+        public struct DiskCandidate: Sendable, Codable, Identifiable {
+            public var id: String { bsdName }
+            public var bsdName: String                          // "disk4"
+            public var model: String                            // "SanDisk Ultra USB 3.0"
+            public var sizeBytes: UInt64
+            public var protocolName: String                     // "USB"
+            public var partitionCount: Int
+            public var volumes: [(name: String, fileSystem: String)]
+            public var isInternal: Bool, isRemovable: Bool, isBootDisk: Bool
+            public var isEligible: Bool                         // P8
+        }
+        imagine func listDiskCandidates() throws -> [DiskCandidate] {
+            requirements(`P8. DiskArbitration만 쓴다. diskutil을 파싱하지 않는다. 시동 디스크는 statfs("/")와 "/System/Volumes/Data"의 f_mntfromname에서 whole disk를 구한다.`);
+            ensure(`반환에 isBootDisk == true인 항목이 없다`);
+            ensure(`DA 설명 딕셔너리를 주입하는 순수 함수 classify(description:) 가 내장·시동·이미지 디스크를 걸러낸다 (단위 테스트)`);
+        }
+
+        @location('SnakeStickCore/Sources/SnakeStickCore/Installer.swift')
+        imagine func runInstaller(_ request: InstallerRequest, events: @escaping @Sendable (InstallerEvent) -> Void) async throws -> InstallerResult {
+            requirements(`
+                code#pipeline 의 8단계를 순서대로 실행한다. 각 단계 시작에 .progress를 보낸다.
+                .device 대상이면 getuid() == 0을 요구한다 (아니면 InstallerError(phase: .prepareTarget, "root required")).
+                .image 대상이면 파일을 만들고 hdiutil attach -nomount로 붙인 뒤 같은 경로를 밟고, 끝에 detach한다.
+                Task 취소를 단계 사이와 copyTree progress에서 본다 (P16). 취소되면 정리(§11) 뒤 CancellationError를 던진다.
+                실패하면 정리 뒤 InstallerError를 던지고 .failed도 보낸다.
+            `);
+            ensure(`§15 통합 테스트: .image 대상으로 끝까지 돌고, 결과 이미지를 읽기 전용으로 붙여 GPT healthy·NTFS 트리 일치·FAT 네 파일 일치`);
+            ensure(`copyTree 중 취소 → CancellationError, 마운트·attach가 남지 않음`);
+        }
+    </code>
+
+    <code id="partition" lang="text/x-pseudocode; variant=swift+imagine">
+        // 단계 3. SlopDisk로 code#layout 을 만든다. FAT를 끝에 두는 방법: NTFS를 .remaining으로 넣어 LastUsableLBA를 알아낸 뒤 줄이고, FAT를 at:으로 넣는다 (F6).
+        imagine func writePartitionTable(devicePath: String, label: String) throws -> (ntfs: SDPartition, fat: SDPartition) {
+            requirements(`
+                let device = try SDRawDevice(path: devicePath, acknowledging: .dataLossRisk)
+                let disk = try SDDisk(device: device, ignoringExistingTable: true)
+                try disk.withTransaction { txn in
+                    txn.clear()
+                    var ntfs = try txn.addPartition(.remaining, type: .microsoftBasicData, label: label)      // begin = 첫 정렬 경계, end = LastUsableLBA
+                    let sectorsPerMiB = UInt64(1 << 20) / UInt64(disk.sectorSize)
+                    let fatSectors = sectorsPerMiB                                                         // 결정 23: 1 MiB
+                    let fatBegin = ((ntfs.end + 1 - fatSectors) / sectorsPerMiB) * sectorsPerMiB           // 1 MiB 아래로 정렬
+                    ntfs = try txn.resizePartition(ntfs.id, to: .size(.bytes((fatBegin - ntfs.begin) * UInt64(disk.sectorSize))))
+                    let fat = try txn.addPartition(.size(.bytes(fatSectors * UInt64(disk.sectorSize))), type: .efiSystem, label: "UEFI:NTFS", at: fatBegin)
+                    try txn.commit()
+                    return (ntfs, fat)
+                }
+                // withTransaction이 끝나면 device를 해제해야 슬라이스가 생긴다 (F8). disk와 device를 이 함수 밖으로 내보내지 않는다.
+            `);
+            ensure(`64 MiB(512) 이미지: ntfs.index == 0, ntfs.begin == 2048, fat.index == 1, fat.end == 131038, fat.begin == 131038 + 1 - 2048 - ((131038 + 1 - 2048) % 2048) 또는 그와 같은 1 MiB 정렬 값, fat.size.bytes == 1_048_576`);
+            ensure(`fat.end == LastUsableLBA (뒤에 빈 구간이 없다)`);
+            ensure(`gpt -r show <image> 의 두 행이 SlopDisk의 begin/end와 같다 (slopdisk 테스트 헬퍼와 같은 방식)`);
+            ensure(`디스크가 "2 MiB + GPT"보다 작으면 트랜잭션 전에 InstallerError (C10)`);
+        }
+    </code>
+
+    <code id="pipeline" lang="text/x-pseudocode; variant=swift">
+        // runInstaller의 골격. 세부는 §3~§11.
+        let tmp = makeTempDir()                                    // P4
+        defer { cleanup(tmp) }                                     // §11: FAT 언마운트 → ISO detach → 이미지 detach → 승인 콜백 해제 → 디렉터리 삭제
+
+        // 1
+        let iso = try attachISO(request.isoPath, at: tmp/iso)      // P3
+        let info = try inspectISO(mounted: iso)                    // P5, P6, 결정 25
+        if options.useCA2023Bootloaders { try extractCA2023(from: iso/sources/boot.wim, to: tmp/wim) }   // P7. 실패는 여기서 끝낸다.
+
+        // 2
+        let device = try resolveTarget(request.target, requiredBytes: info.requiredBytes)   // .device → P8 재검사 + C10, .image → 파일 생성 + hdiutil attach -nomount (C5)
+        try unmountDisk(device)                                    // diskutil unmountDisk force /dev/diskN (C8)
+        let guard = try MountGuard(wholeDisk: device)             // 결정 21. deinit에서 해제.
+
+        // 3
+        let (ntfsPart, fatPart) = try writePartitionTable(devicePath: device.raw, label: label)   // code#partition
+
+        // 4
+        let ntfsSlice = try waitForSlice(device, index: 1, expect: ntfsPart)   // P11, C17, C18
+        let fatSlice  = try waitForSlice(device, index: 2, expect: fatPart)
+
+        // 5
+        try NTFSVolume.format(path: ntfsSlice.raw, options: .init(label: label, sectorSize: device.sectorSize, partitionStartSector: ntfsPart.begin))   // C16
+
+        // 6
+        let volume = try NTFSVolume(path: ntfsSlice.raw, mode: .readWrite)
+        let summary = try volume.copyTree(from: iso) { p in try Task.checkCancellation(); report(p) }   // P15, P16
+        if options.useCA2023Bootloaders { try replaceBootloaders(in: volume, from: tmp/wim, arch: info.architecture) }   // P7, 결정 28
+        try volume.close()
+
+        // 7
+        try run("/sbin/newfs_msdos", "-v", "UEFI_NTFS", fatSlice.raw)            // 결정 23. FAT 종류는 newfs_msdos에 맡긴다 (U8).
+        guard.allowNextMount(of: fatSlice)                                        // 결정 21
+        try run("/usr/sbin/diskutil", "mount", "-mountPoint", tmp/efi, fatSlice.buffered)
+        try copyLoaders(to: tmp/efi/efi/boot)                                     // 결정 24: bootx64.efi, bootaa64.efi, ntfs_x64.efi, ntfs_aa64.efi (서명본, 이름에서 _signed 제거)
+        try scrubMacOSMetadata(tmp/efi)                                           // C6
+        try run("/usr/sbin/diskutil", "unmount", fatSlice.buffered)
+
+        // 8
+        try verify(ntfsSlice, fatSlice, device, against: iso, options)            // P12
+    </code>
+
+    <code id="xpc" lang="text/x-pseudocode; variant=swift">
+        // 앱 ↔ 헬퍼 데몬. 메시지는 Codable. 데몬은 한 번에 작업 하나만 받는다.
+        enum HelperRequest: Codable {
+            case start(InstallerRequest, authorization: Data)      // AuthorizationExternalForm (P10)
+            case cancel
+            case version                                           // 앱과 데몬의 버전 불일치 감지
+        }
+        enum HelperReply: Codable {
+            case accepted
+            case rejected(reason: String)                          // 인증 실패, 이미 실행 중, 버전 불일치, 대상 자격 없음(P8 재검사)
+            case event(InstallerEvent)                             // 진행·로그·완료·실패. 시작 뒤 스트림으로 온다.
+            case version(String)
+        }
+        // 데몬: 피어가 같은 Team ID의 pl.unstabler.aislop.SnakeStick일 때만 세션을 받는다 (P9).
+        // 앱: 세션이 끊기면(데몬 크래시) 07 오류로 보인다.
+    </code>
+
+    <code id="cli" lang="text/plain">
+        snakestick make  [--label LABEL] [--no-verify] [--ca-2023] [--yes] [--verbose] ISO DISK
+        snakestick build [--label LABEL] [--no-verify] [--ca-2023] [--imgsize SIZE] [--verbose] -o IMAGE ISO
+        snakestick disks                       # P8의 후보 목록. 자격 없는 이유도 보인다.
+        snakestick info ISO                    # ISOInfo
+
+        DISK는 disk4 또는 /dev/disk4 또는 /dev/rdisk4. SIZE는 SI: 8G = 8,000,000,000 (결정 8, C11). 종료 코드는 P20.
+        make는 root가 아니면 77로 끝난다. --yes가 없으면 후보 정보를 보이고 "Type the disk name (disk4) to continue:"를 묻는다.
+    </code>
+
+    <specs>
+        §1. 패키지와 타깃
+        - `SnakeStickCore/Package.swift`: tools 6.4, `platforms: [.macOS(.v14)]`, 의존 `.package(path: "../slopdisk")`, `"../NTFS3G"`, `"../WIMLib"`. 타깃: `SnakeStickCore`(라이브러리, 리소스 `Resources/UEFI-NTFS/` 포함), `snakestick`(실행 파일, `ArgumentParser` 없이 직접 파싱한다 — 외부 의존 0개 유지), `SnakeStickCoreTests`.
+        - `Resources/UEFI-NTFS/`: `bootx64.efi`, `bootaa64.efi`, `ntfs_x64.efi`, `ntfs_aa64.efi`(릴리스의 `_signed` 파일을 이 이름으로 저장), `VERSIONS.md`(버전, 출처 URL, SHA-256, 라이선스 GPLv2와 업스트림 소스 태그 링크), `LICENSE.uefi-ntfs`(GPLv2 전문). `Scripts/update-uefi-ntfs.sh`: 태그를 인자로 받아 `gh release download`로 받고 SHA-256을 `VERSIONS.md`에 갱신한다. 테스트가 번들 파일의 SHA-256과 `VERSIONS.md`를 대조한다.
+        - Xcode 프로젝트: 앱 타깃에 로컬 패키지 `SnakeStickCore` 추가. 새 타깃 `SnakeStickHelper`(Command Line Tool, `SnakeStickCore` 링크, 번들 ID `pl.unstabler.aislop.SnakeStick.helper`). 앱의 Copy Files 단계로 `Contents/MacOS/`에 넣고, launchd plist를 `Contents/Library/LaunchDaemons/`에 넣는다 (P18). `ENABLE_APP_SANDBOX = NO`(결정 19), `SWIFT_VERSION = 6.0`(P1). 두 타깃 모두 hardened runtime. `.gitmodules`에 `WIMLib/Vendor/wimlib`이 있는지 확인한다 (WIMLib 지시서가 추가한다).
+        - 워크스페이스에 `WIMLib`과 `SnakeStickCore` 폴더 참조를 추가한다 (F2).
+
+        §2. 디스크 후보 (P8)
+        - `code#core-api`의 `listDiskCandidates`와 `classify(description:)`. DA 세션은 호출마다 만들고 닫는다. 앱은 `DARegisterDiskAppearedCallback`/`DisappearedCallback`으로 메뉴를 갱신한다.
+        - 표시 규칙은 `<figma>` 02b와 `code#strings`. 프로토콜 표기: `DADeviceProtocol`이 "USB"면 "USB 외장 디스크", "Thunderbolt"면 "Thunderbolt 외장 디스크", 그 밖에는 값 그대로 + " 외장 디스크".
+
+        §3. ISO (P3, P5, P6, 결정 25)
+        - `inspectISO`: 파일 크기, PVD 레이블, `hdiutil attach -readonly -nobrowse -plist -mountpoint` → plist의 `system-entities`에서 `mount-point`. `sources/boot.wim`을 WIMLib으로 열어 이미지 2(없으면 마지막 이미지)의 `WINDOWS/ARCH`, `WINDOWS/VERSION/MAJOR|MINOR|BUILD`. `estimatedVolumeSize(forTreeAt:)`. `requiredBytes = estimate + 1 MiB + 2 × (1 MiB) + 2 MiB` (FAT, GPT 앞뒤를 1 MiB 정렬로 넉넉히, 정렬 자투리). 정확한 값보다 커도 된다. 끝나면 detach.
+        - 파이프라인 단계 1은 같은 일을 하되 detach하지 않고 마운트 지점을 단계 6에 넘긴다. `inspectISO`와 단계 1이 코드를 공유한다.
+        - ISO 레이블이 NTFS 레이블 규칙에 맞지 않으면(NTFS3G `validateLabel`이 던짐) 기본값을 "WINDOWS"로 한다.
+
+        §4. 대상 준비 (단계 2)
+        - `.device`: `listDiskCandidates()`로 다시 찾아 `isEligible`이고 `sizeBytes >= requiredBytes`인지 검사한다 (결정 16의 대가, C10). 실패하면 InstallerError(phase: .prepareTarget). `diskutil unmountDisk force /dev/diskN`. `MountGuard`(결정 21): `DASessionCreate` + `DASessionSetDispatchQueue` + `DARegisterDiskMountApprovalCallback`(matching nil, 콜백에서 `DADiskGetBSDName`이 `diskN` 또는 `diskNs*`이면 `DADissenterCreate(kDAReturnNotPermitted, ...)`; `allowNextMount(of:)`로 표시된 슬라이스 한 번은 nil). 해제는 `DAUnregisterApprovalCallback`.
+        - `.image`: 경로에 파일이 있으면 InstallerError(EEXIST). `size`를 섹터 배수로 올려 sparse 파일을 만들고(`ftruncate`), `hdiutil attach -nomount -imagekey diskimage-class=CRawDiskImage -plist` → `/dev/diskN`. 이후 `.device`와 같다 (`MountGuard` 포함 — hdiutil 디바이스도 DA가 본다). 끝에 `hdiutil detach` (C19).
+        - 두 경우 모두 이후 코드는 `TargetDevice { wholeBSD: "diskN", raw: "/dev/rdiskN", buffered: "/dev/diskN", sectorSize, sectorCount }`만 본다. 슬라이스 경로는 `raw + "s1"` 식으로 만들고 `^/dev/rdisk[0-9]+s[0-9]+$`를 검사한다 (C18).
+
+        §5. 파티션 (단계 3): `code#partition`. 디스크 GUID는 무작위(재현성 불필요). NTFS 파티션 이름은 볼륨 레이블(GPT 이름 36 UTF-16 한도는 SlopDisk가 검사한다. 넘으면 잘라서 넣는다).
+
+        §6. 슬라이스 확인 (단계 4): P11. `IOMedia`의 `Base == partition.byteOffset`, `Size == partition.size.bytes`, `Preferred Block Size == sectorSize`, 부모 체인의 `BSD Name == wholeBSD`. 하나라도 다르면 InstallerError(phase: .checkPartitions)이고 그 뒤 단계로 가지 않는다 (C17).
+
+        §7. NTFS (단계 5·6)
+        - `format(path: raw slice, options: .init(label:, clusterSize: 4096, sectorSize: device.sectorSize, partitionStartSector: ntfsPart.begin))` (C16). `NTFSVolume(path: raw slice, mode: .readWrite)` → `copyTree(from: isoMount)`.
+        - U3·U4·U11이 여기서 드러난다. `format` 또는 `init`이 EINVAL·EBUSY·EEXIST 계열로 실패하면 멈추고 보고한다 (결정 14). 스스로 `/dev/diskNs1`로 바꾸지 않는다.
+        - progress: `NTFSCopyProgress.completedBytes / totalBytes`를 단계 6의 진행으로, `currentPath`를 detail로. 남은 시간은 P15. progress 클로저 안에서 `Task.checkCancellation()`을 던진다 (P16).
+
+        §8. UEFI:NTFS FAT (단계 7): `code#pipeline` 7. `newfs_msdos -v UEFI_NTFS <raw slice>` (`-F`를 주지 않는다. 1 MiB면 FAT12가 된다, U8). 마운트는 `diskutil mount -mountPoint <tmp>/efi <buffered slice>`. 로더 복사는 `FileManager.copyItem` 뒤 `removexattr` 전부, 또는 `ditto --norsrc --noextattr --noqtn --noacl`. 파일 이름은 소문자 `efi/boot/bootx64.efi`, `bootaa64.efi`, `ntfs_x64.efi`, `ntfs_aa64.efi` (F22). 언마운트 전에 `._*`, `.DS_Store`, `.fseventsd`, `.Spotlight-V100`, `.Trashes`를 지운다 (C6, U9). `diskutil unmount`.
+
+        §9. CA 2023 (P7, 결정 28): 단계 1에서 `WIMFile(path: iso/sources/boot.wim).extract(paths: ["/Windows/Boot/EFI_EX", "/Windows/Boot/Fonts_EX"], fromImage: 2, to: tmp/wim)`. 단계 6 끝에 `replaceBootloaders`: `volume.removeItem("/efi/boot/boot<arch>.efi")` + `writeFile(from: tmp/wim/bootmgfw_EX.efi)`, `/bootmgr.efi` ← `bootmgr_EX.efi`, `Fonts_EX/*_EX.<ext>` → `/efi/microsoft/boot/fonts/<name>.<ext>`(있는 것만 교체, 없으면 새로 쓴다). arch: x64 → `bootx64.efi`, ARM64 → `bootaa64.efi`. 교체한 파일 목록을 검증(단계 8)에 넘긴다. WIMLib이 이미지 2를 찾지 못하거나 경로가 없으면 InstallerError(phase: .openISO, "this ISO has no 2023-signed boot loaders").
+
+        §10. 검증 (단계 8): P12. NTFS 비교는 `contentsOfDirectory`로 트리를 돌며 원본(ISO 마운트, CA 2023 교체본 포함)과 이름 집합·종류·크기가 같고 `readFile`로 읽은 바이트가 같아야 한다. 진행은 읽은 바이트로 낸다. 불일치는 첫 경로를 InstallerError 메시지에 넣는다. FAT는 `diskutil mount readOnly -mountPoint`(콜백 허용) → 네 파일 SHA-256 → 언마운트. GPT는 `SDRawDevice(readOnlyPath:)` → `SDDisk` → `scheme == .gpt(.healthy)`, 파티션 둘의 type·begin·end가 단계 3의 값과 같다.
+
+        §11. 정리·취소·실패: 순서는 `code#pipeline`의 defer. 각 정리 단계는 실패해도 다음 단계를 계속하고 로그를 남긴다. `diskutil unmount`가 EBUSY면 3회 재시도(1초 간격) 뒤 `force`. ISO detach도 같다. 이미지 detach는 열린 핸들(NTFSVolume, SDRawDevice)이 전부 닫힌 뒤에 한다 (C19). 취소·실패 뒤 대상 디스크는 그대로 둔다 (P16). 임시 디렉터리는 마지막에 지운다. 로그에 정리 결과를 남긴다.
+
+        §12. 헬퍼 데몬과 XPC (결정 19, P9, P10, P18)
+        - `SnakeStickHelper`: `main`에서 right 등록(P10) → `XPCListener(service: "pl.unstabler.aislop.SnakeStick.helper")` (또는 P9 폴백) → 세션마다 `code#xpc`. `.start`는 인증 검증 → P8 재검사 → `runInstaller`를 `Task`로 실행하고 이벤트를 `.event`로 보낸다. 동시에 하나만. `.cancel`은 Task 취소. 작업이 없으면 5분 뒤 스스로 종료해도 된다 (launchd가 다시 띄운다).
+        - 앱: `HelperClient`가 `SMAppService` 상태 확인·등록(P18), 세션 연결, `version` 대조(앱 번들 버전과 데몬의 컴파일된 버전이 다르면 재등록 안내), `start`/`cancel`, 이벤트를 `@Observable` 모델로 전달.
+        - 코드서명: 앱과 헬퍼는 같은 Team ID로 서명한다. 리스너의 피어 요구는 `anchor apple generic and identifier "pl.unstabler.aislop.SnakeStick" and certificate leaf[subject.OU] = "XHA76UVA95"` (F1). 개발 빌드에서 이 요구가 막히면 DEBUG에서만 완화하되 보고서에 적는다.
+
+        §13. CLI (`code#cli`, P14, P19, P20): `make`는 root 검사 → `inspectISO` → 후보 표시·확인 → `runInstaller`를 직접 호출. 진행은 한 줄 갱신(`\r`), `--verbose`면 로그를 stderr에. SIGINT → Task 취소 → 정리 → 130. `build`는 `--imgsize`가 없으면 `requiredBytes`(결정 25)를 SI가 아닌 그대로의 바이트로 쓰고, 있으면 SI 파싱(C11)한 값. 값이 `requiredBytes`보다 작으면 64로 끝내며 필요한 값을 알려 준다. `disks`, `info`는 root 불필요.
+
+        §14. GUI (결정 17·18·26, `<figma>`, `code#strings`)
+        - SwiftUI, 창 하나(480 × 580 고정), `@Observable` 모델 `InstallerViewModel`이 상태 기계(01 → 02 ↔ 02b → 03 → 04 ↔ 05 → 06 | 07)를 든다. 각 프레임의 세부 배치·간격은 Figma `get_design_context`로 읽는다 (F30). 시스템 폰트·시스템 색·SF Symbols.
+        - ISO 선택: `fileImporter`(`.iso` 확장자, UTType `public.iso-image`)와 창 드롭. 선택하면 `inspectISO`를 백그라운드에서 돌리고 부제·레이블·필요 공간·CA 2023 활성을 갱신한다. 실패하면 부제에 이유.
+        - 대상 메뉴: §2. 선택하면 부제. 필요 공간 변경 시 후보 활성 상태를 다시 계산한다.
+        - "쓰기 시작" → 03 시트 → "지우고 쓰기" → 인증(P10) → 데몬 `start` → 04. 인증 취소면 02로. 데몬 미승인이면 안내 시트(로그인 항목 열기).
+        - 04: `.progress`를 진행 패널에, 취소 → 05 시트 → "중단" → 데몬 `cancel` → 정리 완료 이벤트(`.failed`의 취소 종류) 뒤 07이 아니라 02로 돌아가되 상태 문구는 "중단했습니다 — 스틱은 부팅할 수 없는 상태입니다"(String Catalog에 추가한다).
+        - 06·07: `<figma>`. "로그 보기..."는 별도 창에 `.log` 이벤트 전부를 모노스페이스로. "추출"은 P21.
+        - String Catalog `Localizable.xcstrings`: 영어 기본, `ko`. Figma 문구를 그대로 `ko`에 넣는다.
+
+        §15. 테스트
+        - `SnakeStickCoreTests` (Swift Testing). 항상 도는 것: `classify(description:)`(P8 규칙, 딕셔너리 픽스처), 빌드 → 이름 표(P6), `--imgsize` SI 파싱(C11: "8G" == 8_000_000_000, "7.5G" == 7_500_000_000), `requiredBytes` 계산, CLI 인자 파싱과 종료 코드(64 경로), 번들 로더 SHA-256 == `VERSIONS.md`, PVD 레이블 파싱(작은 픽스처 바이트).
+        - opt-in `SNAKESTICK_TEST_INTEGRATION=1` (`.serialized`): (a) 픽스처 트리(`sources/boot.wim`은 WIMLib 테스트 픽스처를 재사용하거나 `wimlib-imagex`가 없으므로 WIMLib이 만든 작은 WIM을 복사한다; XML에 `WINDOWS/ARCH 9`, `BUILD 26200`, 이미지 2)를 `hdiutil makehybrid -o test.iso -udf -iso -default-volume-name SNAKETEST <dir>`로 ISO로 만든다 (U13). (b) `inspectISO` ensure. (c) `runInstaller(.image(path:, size: requiredBytes + 64 MiB))`를 끝까지 돌린다 (`build` 경로). 결과 이미지를 `hdiutil attach -nomount -readonly`로 붙여 `SDRawDevice(readOnlyPath:)`로 GPT healthy와 파티션 둘, `NTFSVolume(path: s1, mode: .readOnly)`로 트리 일치, `diskutil mount readOnly`로 FAT 네 파일 SHA-256 일치, `._*`·`.DS_Store` 없음(U9는 `.fseventsd`의 유무를 보고서에 적는다). (d) 취소: progress에서 취소 → `CancellationError`, `hdiutil info`에 테스트 이미지가 남지 않음. (e) CA 2023: 픽스처 WIM에 `Windows/Boot/EFI_EX/bootmgfw_EX.efi`(더미 바이트)를 넣고 옵션을 켜서 결과 NTFS의 `/efi/boot/bootx64.efi`가 더미와 같은지. (f) `snakestick build`를 프로세스로 실행해 (c)와 같은 검사, exit 0. `snakestick make` 비root → 77. `snakestick info`, `disks` → 0.
+        - 디바이스 경로는 테스트가 방금 붙인 attach 출력에서만 얻는다 (C20). 실디스크 경로의 `make`는 자동 테스트하지 않는다. 실행자가 실제 USB로 수동 실행했다면 명령과 결과를 보고서에 적고, 하지 않았으면 그렇게 적는다.
+
+        §16. 문서: `<closing>`.
+    </specs>
+
+    <constraints>
+        조용히 깨지는 것. `Prompts/00-metainit.xml`의 번호를 유지했고 이 작업에서 더한 것은 C21부터다.
+
+        - C1. 블록 크기를 512로 하드코딩하지 않는다. `SDRawDevice.sectorSize`를 쓰고, 같은 값을 `NTFSFormatOptions.sectorSize`에 넣는다. `code#partition`의 정렬 계산도 이 값에서 나온다.
+        - C5. raw 이미지는 `-imagekey diskimage-class=CRawDiskImage` 없이 attach하면 인식에 실패할 수 있다. 빈 sparse 파일도 같다.
+        - C6. 쓰기 가능으로 마운트한 볼륨에는 `._*`, `.DS_Store`, `.fseventsd`, `.Spotlight-V100`이 생긴다. FAT 슬라이스만 해당한다. xattr 없이 복사하고 언마운트 전에 지우고 read-only로 다시 열어 검사한다. 검증 마운트는 항상 read-only.
+        - C7. 파티션 테이블이 먼저 들어가고 슬라이스를 포맷한 뒤 닫는 순간마다 DiskArbitration이 마운트를 시도할 수 있다. `MountGuard`가 없으면 NTFS3G가 쓰는 동안 FSKit이 같은 볼륨을 마운트할 수 있다.
+        - C8. NTFS3G와 SlopDisk에는 `/dev/rdiskN…`(raw)을 준다. `diskutil mount`에는 `/dev/diskN…`(버퍼드)을 준다. 버퍼드 노드는 `fsync` 전까지 디바이스에 닿지 않는다 (F8).
+        - C10. 대상이 `requiredBytes`보다 작으면 트랜잭션 전에 거부한다. 파티션은 "나머지 전부"라 항상 만들어지므로, 이 검사가 copyTree 도중 ENOSPC를 막는 유일한 지점이다.
+        - C11. `--imgsize`의 `G`는 10^9, `M`은 10^6이다. `SDSize.gigabytes`는 2진이므로 `--imgsize`를 `SDSize.bytes`로만 넘긴다 (F7).
+        - C13. 샌드박스를 끄지 않으면 `hdiutil`과 `/dev` 접근이 실행할 때에야 실패한다. 빌드는 통과한다.
+        - C14. 같은 저장소에서 다른 세션이 `slopdisk/`·`NTFS3G/`·`WIMLib/`을 만질 수 있다. git은 경로를 한정해서만 쓴다. `git add -A`, `git add .`, `git commit -a`, `git stash`, 경로 없는 `git reset`은 쓰지 않는다. 커밋은 `git add -- <경로>` 뒤 `git commit -m "..." -- <경로>`로 한다. pathspec 없는 `git commit`은 다른 세션이 스테이징한 것까지 담는다.
+        - C16. `NTFSFormatOptions.sectorSize`와 `partitionStartSector`는 대상의 논리 블록 크기와 NTFS 파티션의 시작 LBA(`SDPartition.begin`, 대상 블록 단위)와 같아야 한다. mkntfs는 Darwin에서 파티션 시작을 스스로 알아내지 못한다. 어긋나도 mkntfs와 FSKit은 통과하지만 Windows는 부팅하지 못할 수 있다.
+        - C17. 슬라이스 경로는 문자열로 만들어지므로 그것만으로는 다른 디스크와 구분되지 않는다. 포맷 전에 IOKit으로 부모·오프셋·크기를 대조한다 (P11). 없으면 기다리되 추측한 경로로 진행하지 않는다.
+        - C18. NTFS3G `format(path:)`는 경로를 검사하지 않는다 (F11). whole-disk 경로를 넘기면 GPT를 덮어쓴다. `^/dev/rdisk[0-9]+s[0-9]+$`와 C17을 통과한 경로만 넘긴다.
+        - C19. `hdiutil detach`는 열린 fd가 하나라도 있으면 "Resource busy"다. NTFSVolume·SDRawDevice·마운트를 전부 닫고 detach한다. 실패·취소 경로에서도 같다.
+        - C20. 테스트가 여는 디바이스 경로는 그 테스트가 방금 실행한 `hdiutil attach`의 출력에서만 얻는다. `^/dev/r?disk[0-9]+(s[0-9]+)?$`를 검사한다. `disk0` 같은 추측·하드코딩은 절대 하지 않는다. attach에는 항상 `-nomount`. 이 규칙을 어기면 개발자 머신의 실디스크가 지워진다.
+        - C21. 데몬은 앱이 보낸 대상을 믿지 않는다. P8 재검사와 C10을 데몬 안에서 다시 한다. 앱이 보낸 `bsdName`이 `^disk[0-9]+$`가 아니면 거부한다.
+        - C22. `MountGuard`의 허용 표시(`allowNextMount`)는 한 번만 유효하다. FAT 마운트가 실패해 재시도하면 다시 표시한다. 표시가 남아 있으면 검증 단계의 FSKit 자동 마운트가 통과할 수 있다.
+        - C23. `copyTree`는 원본 트리를 먼저 스캔해 이름을 검사한다 (F13). 실제 Windows ISO에 Windows가 쓰지 못하는 이름은 없지만, 스캔 자체가 수 초 걸리므로 단계 6의 진행 표시가 그 동안 멈춘다. 단계 6 시작 직후 "파일을 확인하고 있습니다"를 detail로 보인다.
+        - C24. `estimatedVolumeSize`는 clusterSize 4096 기준이다. `format`에도 4096을 명시한다 (F11의 기본값이지만 명시). 값이 다르면 추정이 깨진다.
+        - C25. Authorization external form은 `AuthorizationRef`가 살아 있는 동안만 유효하다. 앱은 데몬이 `.accepted`를 돌려줄 때까지 `AuthorizationRef`를 해제하지 않는다.
+        - C26. `hdiutil attach`의 plist 출력에서 디바이스를 찾을 때 `content-hint`나 순서에 의존하지 않는다. `dev-entry`가 `^/dev/disk[0-9]+$`인 항목(whole disk)을 고른다.
+        - C27. 취소 뒤 `NTFSVolume.close()`를 반드시 부른다. copyTree가 던진 뒤에도 볼륨은 열려 있고, 닫지 않으면 detach가 EBUSY다 (C19).
+    </constraints>
+
+    <acceptance>
+        모두 저장소 루트에서. 실행하지 못한 것은 보고서의 "확인하지 못한 것"에 이유와 함께 적는다.
+
+        - `cd SnakeStickCore && swift build` → 성공. SnakeStickCore가 소유한 파일에서 warning 0.
+        - `cd SnakeStickCore && swift test` → 항상 도는 테스트 전부 통과. 통합 스위트는 skip.
+        - `cd SnakeStickCore && SNAKESTICK_TEST_INTEGRATION=1 swift test` → §15 (a)~(f) 통과. 실행 전후 `hdiutil info | grep -c image-path`가 같다.
+        - `cd SnakeStickCore && swift run snakestick info <§15의 test.iso>` → exit 0, "SNAKETEST", "26200", "x64".
+        - `cd SnakeStickCore && swift run snakestick build -o /tmp/snaketest.img <test.iso>` → exit 0. `ls -l`과 `du -k`로 sparse 여부를 보고서에 적는다 (U10). 그 뒤 `rm /tmp/snaketest.img`.
+        - `cd SnakeStickCore && swift run snakestick make <test.iso> disk0` (비root) → exit 77, 아무것도 열지 않는다. (`disk0`은 여기서 인자 검증만 거친다. root로는 절대 실행하지 않는다.)
+        - `xcodebuild -workspace SnakeStick.xcworkspace -scheme SnakeStick -configuration Debug build` → 성공. 산출물 번들에 `Contents/MacOS/SnakeStickHelper`와 `Contents/Library/LaunchDaemons/pl.unstabler.aislop.SnakeStick.helper.plist`가 있다. `codesign -dv --entitlements - <app>`에 샌드박스 entitlement가 없다.
+        - 앱을 실행해 ISO(test.iso)를 고르면 02 상태가 되고 부제·레이블·필요 공간이 채워진다. 대상 메뉴에 내장 디스크가 없다. 이 확인은 실행자가 눈으로 하고 보고서에 스크린샷 경로 또는 설명을 적는다.
+        - `grep -rn "dataLossRisk" SnakeStickCore/Sources` → `writePartitionTable` 한 곳뿐이다.
+        - `git log --oneline` → `<closing>`의 커밋 단위와 맞고, 모든 커밋이 `git show --stat`에서 `SnakeStickCore/`, `SnakeStick/`, `SnakeStick.xcworkspace/`, `README.md`, `CLAUDE.md`, `Prompts/`, `.gitmodules` 밖의 경로를 담지 않는다.
+    </acceptance>
+
+    <closing>
+        - 커밋 (결정 27, C14). 각 커밋에서 `swift build`와 그 시점의 테스트가 통과한다. 제목은 영문 명령형, 기존 컨벤션("Add …", "Implement …")을 따른다. Co-author 트레일러를 넣지 않는다.
+            1. SnakeStickCore 패키지 골격, 모델, 번들 로더와 VERSIONS.md, 갱신 스크립트, 워크스페이스 참조.
+            2. 디스크 후보(P8)와 ISO 정보(P3·P5·P6), 그 테스트.
+            3. 파이프라인 단계 1~8과 정리(§3~§11), 통합 테스트 (a)~(e).
+            4. CLI(§13)와 테스트 (f).
+            5. 헬퍼 데몬과 XPC, Xcode 타깃·서명 설정(§12, §1).
+            6. GUI(§14)와 String Catalog.
+            7. README.md, CLAUDE.md, 보고서.
+        - 보고서: `Prompts/10-implementation.report.md`에 한국어로 쓴다. 순서: 확인한 것(실행한 명령과 결과), 확인하지 못한 것(`<unverified>` U1~U14 각각의 결과 또는 이유), ensure·§15 항목별 통과 표, 플래너 결정과 다르게 한 것, 세 패키지에서 발견한 문제(수정하지 않고 적는다). 지어내지 않는다. 실행하지 않은 명령을 실행한 것처럼 쓰지 않는다.
+        - README.md(영문): SYNOPSIS(GUI, `snakestick make/build/disks/info`), HOW IT WORKS(8단계), DESIGN NOTES(직접 파티셔닝, UEFI:NTFS, root 데몬, 검증), NON-GOALS(P13), KNOWN LIMITATIONS(재현 불가 이미지, `build` 이미지의 `dd` 시 백업 GPT 위치와 최소 스틱 크기, UEFI:NTFS 의존과 Secure Boot, U12), LICENSE(GPLv3; SlopDisk Artistic 2.0, NTFS3G·libntfs-3g GPLv2+, WIMLib·wimlib LGPLv3+, UEFI:NTFS GPLv2 서명 바이너리와 출처). 이 지시서를 쓰는 시점의 README 초안이 이미 있으니 그것을 고친다.
+        - CLAUDE.md(루트): 저장소 구성(네 패키지와 앱), 빌드·테스트 명령, 디바이스 경로 안전 규칙(C20), git 규칙(C14), 지시서 위치. 이 지시서를 쓰는 시점의 초안이 이미 있으니 그것을 고친다.
+        - 끝나면 대화로 보고한다.
+    </closing>
+</agent-task>
