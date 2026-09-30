@@ -7,13 +7,19 @@ design. This file is about working in the repository.
 
 | Path | What | Own docs |
 |---|---|---|
-| `SnakeStick/` | Xcode project: the app and the `SnakeStickHelper` root daemon | — |
-| `SnakeStickCore/` | SwiftPM package: pipeline library and the `snakestick` CLI (planned, stage 10) | — |
+| `SnakeStick/` | Xcode project: the app (`SnakeStick/SnakeStick`), the `SnakeStickHelper` root daemon, the daemon's launchd plist (`LaunchDaemons/`) | — |
+| `SnakeStickCore/` | SwiftPM package: the pipeline library `SnakeStickCore` and the `snakestick` CLI | `README.md` (root) |
 | `slopdisk/` | GPT engine and raw device backend (SlopDisk) | `slopdisk/README.md`, `slopdisk/CLAUDE.md` |
-| `NTFS3G/` | libntfs-3g wrapper (submodule at `NTFS3G/Vendor/ntfs-3g`) | `NTFS3G/README.md`, `NTFS3G/CLAUDE.md` |
-| `WIMLib/` | wimlib wrapper (submodule at `WIMLib/Vendor/wimlib`; planned) | `WIMLib/Prompts/10-swift-api.xml` |
+| `NTFS3G/` | libntfs-3g wrapper (submodule at `NTFS3G/Vendor/ntfs-3g`) | `NTFS3G/README.md` |
+| `WIMLib/` | wimlib wrapper (submodule at `WIMLib/Vendor/wimlib`) | `WIMLib/README.md`, `WIMLib/CLAUDE.md` |
 | `Prompts/` | Task documents (`<agent-task>`) and their reports for the top-level work | — |
-| `SnakeStick.xcworkspace` | Workspace that references the project and the packages | — |
+| `SnakeStick.xcworkspace` | Workspace that references the project and the four packages | — |
+
+`SnakeStickCore/Sources/SnakeStickCore/`: `Model.swift` (the public request, event and error types),
+`ISOInfo.swift`, `DiskCandidates.swift`, `Installer.swift` (`runInstaller`, cleanup), `Pipeline/`
+(one file per concern: partitioning, mount guard, boot partition, CA 2023, verification, progress),
+`HelperProtocol.swift` (app ↔ daemon messages), `Resources/UEFI-NTFS/` (bundled signed loaders; update
+them only with `Scripts/update-uefi-ntfs.sh`).
 
 Every package has a `Prompts/` directory with numbered task documents and `*.report.md` files. A
 stage is done when its report exists. Read the report before relying on a package's API; the report
@@ -29,8 +35,20 @@ cd SnakeStickCore && swift test                             # SNAKESTICK_TEST_IN
 xcodebuild -workspace SnakeStick.xcworkspace -scheme SnakeStick -configuration Debug build
 ```
 
-Long test runs: wrap them in a timeout so a stall is noticed (`timeout 600 swift test ...` or a
-kill-after loop).
+Long test runs: wrap them in a timeout so a stall is noticed. macOS has no `timeout`; use a
+kill-after loop (`cmd & pid=$!; for …; do sleep 1; kill -0 $pid || break; done`).
+
+- `SNAKESTICK_TEST_INTEGRATION=1` runs every suite nested in `IntegrationTests` (serialized as a
+  whole): fixture ISOs made with `hdiutil makehybrid`, the whole pipeline on attached images, and the
+  built `snakestick` binary. About 30 seconds, no root.
+- The Xcode build puts its products under `~/Library/Developer/Xcode/DerivedData/Build/Products/`
+  on this machine (the workspace setting), not under a per-project DerivedData folder.
+- The app registers the daemon with `SMAppService`; the first time, it has to be allowed in System
+  Settings > General > Login Items. The daemon logs to the unified log, subsystem
+  `pl.unstabler.aislop.SnakeStick.helper`.
+- NTFS3G is given the buffered slice `/dev/diskNs1`, not `/dev/rdiskNs1`: libntfs-3g issues
+  unaligned I/O that raw nodes reject (U11 in `Prompts/10-implementation.report.md`). Everything else
+  (SlopDisk, `newfs_msdos`) uses raw nodes.
 
 ## Safety rules for disk devices
 
@@ -43,6 +61,11 @@ These rules protect the developer's machine. They apply to code and to anything 
 - Always attach images with `hdiutil attach -nomount -imagekey diskimage-class=CRawDiskImage`.
 - Never run `snakestick make`, or the app's write path, against a real disk as part of automated
   testing. Manual runs against a real USB stick are the user's call; record them in the report.
+  Identify the stick by diffing the disk list from before and after the user plugs it in, show its
+  model and size, and have the user confirm it before anything opens it. Writing needs root: hand
+  the user the exact `sudo` command instead of trying to escalate.
+- `grep -rn dataLossRisk SnakeStickCore/Sources` must find exactly one line
+  (`Partitioning.writePartitionTable`).
 - Every read-write open of a device goes through `SDRawDevice(path:acknowledging: .dataLossRisk)`.
   `grep -rn dataLossRisk` should find exactly the places that are meant to write.
 - NTFS3G's `format(path:)` does not check what the path is. Only hand it a partition slice
