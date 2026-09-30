@@ -141,7 +141,7 @@ struct HostFile {
 
     /// Opens `url`, following a symbolic link at the last component.
     init(opening url: URL) throws {
-        try self.init(path: url.withUnsafeFileSystemRepresentation { String(cString: $0!) }, followSymlinks: true)
+        try self.init(path: try fileSystemPath(url), followSymlinks: true)
     }
 
     /// Opens `path` as given, byte for byte. (A URL's file system representation is decomposed
@@ -201,4 +201,13 @@ struct HostFile {
     func close() {
         Darwin.close(descriptor)
     }
+}
+
+/// The path of a file URL. Throws `.posix(errno: EINVAL)` for other URLs, whose file system
+/// representation would otherwise be their path component (`/a` for `https://host/a`).
+func fileSystemPath(_ url: URL) throws(NTFS3GError) -> String {
+    guard url.isFileURL, let path = url.withUnsafeFileSystemRepresentation({ $0.map { String(cString: $0) } }) else {
+        throw .posix(operation: "open", path: url.absoluteString, errno: EINVAL)
+    }
+    return path
 }

@@ -118,12 +118,15 @@ extension NTFSVolume {
 
     /// Formats the file at `path` as an empty NTFS volume that fills the whole file.
     ///
-    /// The file must already exist with its final size. mkntfs runs in-process and calls are
-    /// serialized. Unlike the mkntfs program, it leaves the process locale alone; the
-    /// libntfs-3g logging state that it changes is restored afterwards.
+    /// The file must already exist with its final size. The label is stored in Unicode NFC.
+    ///
+    /// mkntfs runs in-process and calls are serialized. Unlike the mkntfs program, it leaves the
+    /// process locale alone; the libntfs-3g logging state that it changes is restored
+    /// afterwards.
     public static func format(path: String, options: NTFSFormatOptions = .init()) throws {
         cntfs3g_initialize()
-        try validateLabel(options.label)
+        let label = NTFSPath.normalized(options.label)
+        try validateLabel(label)
 
         var info = stat()
         guard stat(path, &info) == 0 else {
@@ -143,8 +146,8 @@ extension NTFSVolume {
             // Always explicit, so that the cluster size matches estimatedVolumeSize's.
             "-c", String(options.clusterSize),
         ]
-        if !options.label.isEmpty {
-            arguments += ["-L", options.label]
+        if !label.isEmpty {
+            arguments += ["-L", label]
         }
         arguments.append(path)
 

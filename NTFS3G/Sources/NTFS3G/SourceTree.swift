@@ -25,7 +25,7 @@ enum SourceTree {
     /// Throws `.unsupportedFileType` for a symbolic link or special file anywhere in the tree,
     /// including `root` itself.
     static func scan(_ root: URL) throws -> [SourceItem] {
-        let path = root.withUnsafeFileSystemRepresentation { String(cString: $0!) }
+        let path = try fileSystemPath(root)
         var info = stat()
         guard lstat(path, &info) == 0 else {
             throw NTFS3GError.posix(operation: "lstat", path: path, errno: errno)

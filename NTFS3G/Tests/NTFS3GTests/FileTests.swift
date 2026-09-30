@@ -234,6 +234,21 @@ import Testing
         }
     }
 
+    @Test func nonFileURLsThrow() throws {
+        try withScratchVolume { volume, _ throws in
+            let url = try #require(URL(string: "https://example.com/install.wim"))
+            #expect(throws: NTFS3GError.posix(operation: "open", path: url.absoluteString, errno: EINVAL)) {
+                try volume.writeFile("/f", from: url)
+            }
+            #expect(throws: NTFS3GError.posix(operation: "open", path: url.absoluteString, errno: EINVAL)) {
+                _ = try volume.copyTree(from: url)
+            }
+            #expect(throws: NTFS3GError.posix(operation: "open", path: url.absoluteString, errno: EINVAL)) {
+                _ = try NTFSVolume.estimatedVolumeSize(forTreeAt: url)
+            }
+        }
+    }
+
     @Test func readFileAtEndReturnsZero() throws {
         try withScratchVolume { volume, _ throws in
             let payload = pattern(count: 10_000)

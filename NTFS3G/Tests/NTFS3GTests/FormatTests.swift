@@ -62,6 +62,15 @@ import Testing
         }
     }
 
+    @Test func formatStoresLabelInNFC() throws {
+        let scratch = try ScratchDirectory()
+        defer { scratch.remove() }
+        let image = try scratch.makeVolume(options: .init(label: "윈도우 설치".decomposedStringWithCanonicalMapping))
+        let volume = try NTFSVolume(path: image, mode: .readOnly)
+        defer { try? volume.close() }
+        #expect(sameBytes(volume.label, "윈도우 설치"))
+    }
+
     @Test func formatAcceptsReservedNameAsLabel() throws {
         let scratch = try ScratchDirectory()
         defer { scratch.remove() }
