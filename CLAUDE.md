@@ -1,18 +1,21 @@
 # SnakeStick — notes for coding agents
 
-SnakeStick writes Windows 10/11 installation media on macOS. Read `README.md` first; it describes the
-design. This file is about working in the repository.
+SnakeStick writes Windows 10/11 installation media on macOS. Read `docs/DESIGN.md` first; it describes
+the design, the CLI and the known limitations. `README.md` (and its Korean copy `README.ko.md`) is the
+user-facing page for people who download the app; keep the two in step. This file is about working in
+the repository.
 
 ## Layout
 
 | Path | What | Own docs |
 |---|---|---|
 | `SnakeStick/` | Xcode project: the app (`SnakeStick/SnakeStick`), the `SnakeStickHelper` root daemon, the daemon's launchd plist (`LaunchDaemons/`) | — |
-| `SnakeStickCore/` | SwiftPM package: the pipeline library `SnakeStickCore` and the `snakestick` CLI | `README.md` (root) |
+| `SnakeStickCore/` | SwiftPM package: the pipeline library `SnakeStickCore` and the `snakestick` CLI | `docs/DESIGN.md` |
 | `slopdisk/` | GPT engine and raw device backend (SlopDisk) | `slopdisk/README.md`, `slopdisk/CLAUDE.md` |
 | `NTFS3G/` | libntfs-3g wrapper (submodule at `NTFS3G/Vendor/ntfs-3g`) | `NTFS3G/README.md` |
 | `WIMLib/` | wimlib wrapper (submodule at `WIMLib/Vendor/wimlib`) | `WIMLib/README.md`, `WIMLib/CLAUDE.md` |
 | `Prompts/` | Task documents (`<agent-task>`) and their reports for the top-level work | — |
+| `docs/` | `DESIGN.md` (design and developer notes) and the images the READMEs use (`docs/images/`) | — |
 | `SnakeStick.xcworkspace` | Workspace that references the project and the four packages | — |
 
 `SnakeStickCore/Sources/SnakeStickCore/`: `Model.swift` (the public request, event and error types),
