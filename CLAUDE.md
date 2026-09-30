@@ -44,8 +44,16 @@ kill-after loop (`cmd & pid=$!; for …; do sleep 1; kill -0 $pid || break; done
 - The Xcode build puts its products under `~/Library/Developer/Xcode/DerivedData/Build/Products/`
   on this machine (the workspace setting), not under a per-project DerivedData folder.
 - The app registers the daemon with `SMAppService`; the first time, it has to be allowed in System
-  Settings > General > Login Items. The daemon logs to the unified log, subsystem
-  `pl.unstabler.aislop.SnakeStick.helper`.
+  Settings > General > Login Items. The app also needs Full Disk Access (granted to the app, it
+  covers the daemon inside the bundle): TCC keeps launchd daemons, root or not, away from
+  removable disks and `~/Downloads`. The daemon logs to the unified log, subsystem
+  `pl.unstabler.aislop.SnakeStick.helper`; read it with `/usr/bin/log` (zsh has a `log` builtin).
+- Do not rebuild the app while its helper is writing: the build replaces the helper binary the
+  running daemon was started from. The daemon exits when it has no connections and no job, and the
+  next connection starts the new binary.
+- Command-line `xcodebuild` leaves empty `.swiftpm/xcode` directories in packages that Xcode has not
+  opened; Xcode then fails to load those packages ("Couldn't load project “xcode”"). Remove the
+  empty directories, or open the workspace in Xcode once.
 - NTFS3G is given the buffered slice `/dev/diskNs1`, not `/dev/rdiskNs1`: libntfs-3g issues
   unaligned I/O that raw nodes reject (U11 in `Prompts/10-implementation.report.md`). Everything else
   (SlopDisk, `newfs_msdos`) uses raw nodes.
