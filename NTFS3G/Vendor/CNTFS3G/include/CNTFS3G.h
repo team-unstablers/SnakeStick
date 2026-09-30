@@ -65,4 +65,13 @@ void cntfs3g_inode_get_times(ntfs_inode *ni, u64 times[3]);
  */
 u64 cntfs3g_lookup_ignoring_case(ntfs_inode *dir_ni, const ntfschar *uname, int uname_len);
 
+/*
+ * ntfs_delete() for the entry name of the open directory dir_ni, whose open inode is ni, with
+ * name compared ignoring case when there is no exact match. Returns 0, or -1 with errno set
+ * (ENOTEMPTY for a directory that has entries).
+ *
+ * ni and dir_ni are closed in every case, also when the call fails.
+ */
+int cntfs3g_delete_ignoring_case(ntfs_inode *ni, ntfs_inode *dir_ni, const ntfschar *name, u8 name_len);
+
 #endif /* CNTFS3G_H */

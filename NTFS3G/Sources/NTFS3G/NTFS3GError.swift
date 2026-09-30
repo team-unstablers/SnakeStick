@@ -25,6 +25,9 @@ public enum NTFS3GError: Error, Equatable {
     /// The operation needs a file, but the path names a directory.
     case isADirectory(String)
 
+    /// The directory cannot be removed because it has entries.
+    case directoryNotEmpty(String)
+
     /// The host item is neither a regular file nor a directory (a symbolic link, FIFO, socket or
     /// device).
     case unsupportedFileType(URL)
@@ -57,6 +60,8 @@ extension NTFS3GError: CustomStringConvertible {
             "not a directory: \(path)"
         case .isADirectory(let path):
             "is a directory: \(path)"
+        case .directoryNotEmpty(let path):
+            "directory not empty: \(path)"
         case .unsupportedFileType(let url):
             "not a regular file or directory: \(url.path)"
         case .readOnlyVolume:

@@ -109,6 +109,42 @@ struct IntegrationTests {
             }
         }
     }
+
+    /// Removes a file larger than 4 GiB and checks that its clusters are free again, also after
+    /// remounting. The name contains "Remove" so that `swift test --filter Remove`, which is
+    /// case-sensitive, picks it up together with RemoveTests.
+    @Test func fileLargerThan4GiBRemoveFreesSpace() throws {
+        let scratch = try ScratchDirectory()
+        defer { scratch.remove() }
+        let sourceDirectory = scratch.url.appendingPathComponent("source", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: false)
+        let size: Int64 = (4 << 30) + (1 << 20)
+        let source = try scratch.makeSparseFile("source/install.wim", size: size)
+        let image = try scratch.makeVolume(size: try NTFSVolume.estimatedVolumeSize(forTreeAt: sourceDirectory))
+
+        let freeBeforeWrite: Int64
+        let freeAfterRemove: Int64
+        do {
+            let volume = try NTFSVolume(path: image, mode: .readWrite)
+            try volume.createDirectory("/sources")
+            freeBeforeWrite = volume.freeBytes
+            try volume.writeFile("/sources/install.wim", from: URL(fileURLWithPath: source))
+            let freeAfterWrite = volume.freeBytes
+            let allocated = (size + Int64(volume.clusterSize) - 1) / Int64(volume.clusterSize) * Int64(volume.clusterSize)
+            #expect(freeBeforeWrite - freeAfterWrite == allocated)
+            try volume.removeItem("/sources/install.wim")
+            freeAfterRemove = volume.freeBytes
+            #expect(freeAfterRemove - freeAfterWrite == allocated)
+            try volume.close()
+        }
+        unlink(source)
+
+        let volume = try NTFSVolume(path: image, mode: .readOnly)
+        defer { try? volume.close() }
+        #expect(try volume.contentsOfDirectory("/sources").isEmpty)
+        #expect(volume.freeBytes == freeAfterRemove)
+        #expect(freeAfterRemove == freeBeforeWrite)
+    }
 }
 
 /// Attaches `image` without mounting it, mounts it read-only with the FSKit NTFS driver, runs

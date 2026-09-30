@@ -66,3 +66,27 @@ u64 cntfs3g_lookup_ignoring_case(ntfs_inode *dir_ni, const ntfschar *uname, int 
 		NVolSetCaseSensitive(vol);
 	return mref;
 }
+
+int cntfs3g_delete_ignoring_case(ntfs_inode *ni, ntfs_inode *dir_ni, const ntfschar *name, u8 name_len)
+{
+	ntfs_volume *vol = dir_ni->vol;
+	BOOL case_sensitive = NVolCaseSensitive(vol) ? TRUE : FALSE;
+	int ret;
+
+	/*
+	 * ntfs_delete() picks the $FILE_NAME attribute to remove by comparing its name with name,
+	 * first exactly and then ignoring case. On a case-sensitive mount the second pass still
+	 * compares POSIX-namespace names exactly, and ntfs_create() stores POSIX names, so a name
+	 * that differs in case fails with ENOENT. As in cntfs3g_lookup_ignoring_case(), the flag is
+	 * cleared for this one call. Nothing else in ntfs_delete() or the functions it calls reads
+	 * the flag.
+	 *
+	 * No pathname is passed. ntfs_delete() uses it only to invalidate the path-to-inode cache,
+	 * and a NULL pathname invalidates by inode number instead.
+	 */
+	NVolClearCaseSensitive(vol);
+	ret = ntfs_delete(vol, NULL, ni, dir_ni, name, name_len);
+	if (case_sensitive)
+		NVolSetCaseSensitive(vol);
+	return ret;
+}

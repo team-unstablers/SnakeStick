@@ -17,8 +17,13 @@ extension NTFSVolume {
     /// Opens the inode at `path`. The caller closes it with ntfs_inode_close.
     ///
     /// Throws `.notFound` or `.notADirectory` naming the first component that does not exist
-    /// or is not a directory. Lookups are case-sensitive.
-    func openInode(_ path: NTFSPath, in volume: UnsafeMutablePointer<ntfs_volume>) throws -> Inode {
+    /// or is not a directory. Lookups are case-sensitive unless `ignoringCase` is set; see
+    /// ``lookUpChild(named:in:path:ignoringCase:)``.
+    func openInode(
+        _ path: NTFSPath,
+        in volume: UnsafeMutablePointer<ntfs_volume>,
+        ignoringCase: Bool = false
+    ) throws -> Inode {
         guard var current = ntfs_inode_open(volume, MFT_REF(FILE_root.rawValue)) else {
             throw NTFS3GError.posix(operation: "open inode", path: "/", errno: errno)
         }
@@ -28,7 +33,7 @@ extension NTFSVolume {
                 guard cntfs3g_inode_is_directory(current) != 0 else {
                     throw NTFS3GError.notADirectory(path.prefix(index).string)
                 }
-                child = try openChild(named: component, in: current, path: path.prefix(index + 1))
+                child = try openChild(named: component, in: current, path: path.prefix(index + 1), ignoringCase: ignoringCase)
             } catch {
                 ntfs_inode_close(current)
                 throw error
@@ -40,8 +45,12 @@ extension NTFSVolume {
     }
 
     /// Opens the directory at `path`. The caller closes it with ntfs_inode_close.
-    func openDirectory(_ path: NTFSPath, in volume: UnsafeMutablePointer<ntfs_volume>) throws -> Inode {
-        let inode = try openInode(path, in: volume)
+    func openDirectory(
+        _ path: NTFSPath,
+        in volume: UnsafeMutablePointer<ntfs_volume>,
+        ignoringCase: Bool = false
+    ) throws -> Inode {
+        let inode = try openInode(path, in: volume, ignoringCase: ignoringCase)
         guard cntfs3g_inode_is_directory(inode) != 0 else {
             ntfs_inode_close(inode)
             throw NTFS3GError.notADirectory(path.string)
@@ -49,9 +58,28 @@ extension NTFSVolume {
         return inode
     }
 
-    private func openChild(named component: String, in directory: Inode, path: NTFSPath) throws -> Inode {
+    /// Opens the entry `component` of the open directory `directory`. `path` is the entry's
+    /// path, for errors. The caller closes the result with ntfs_inode_close.
+    func openChild(named component: String, in directory: Inode, path: NTFSPath, ignoringCase: Bool) throws -> Inode {
+        let reference = try lookUpChild(named: component, in: directory, path: path, ignoringCase: ignoringCase)
+        guard let child = ntfs_inode_open(directory.pointee.vol, reference) else {
+            throw NTFS3GError.posix(operation: "open inode", path: path.string, errno: errno)
+        }
+        return child
+    }
+
+    /// The MFT reference of the entry `component` of the open directory `directory`, found
+    /// without opening it. `path` is the entry's path, for errors.
+    ///
+    /// With `ignoringCase`, a name that differs only in case matches when there is no exact
+    /// match. The exact match is tried first so that, in a directory written by another tool
+    /// that holds both `a` and `A`, the name asked for is the one found.
+    func lookUpChild(named component: String, in directory: Inode, path: NTFSPath, ignoringCase: Bool) throws -> MFT_REF {
         let name = try NTFSName(component)
-        let reference = ntfs_inode_lookup_by_name(directory, name.characters, Int32(name.length))
+        var reference = ntfs_inode_lookup_by_name(directory, name.characters, Int32(name.length))
+        if reference == Self.lookupFailed, errno == ENOENT, ignoringCase {
+            reference = cntfs3g_lookup_ignoring_case(directory, name.characters, Int32(name.length))
+        }
         guard reference != Self.lookupFailed else {
             let code = errno
             if code == ENOENT {
@@ -59,10 +87,7 @@ extension NTFSVolume {
             }
             throw NTFS3GError.posix(operation: "lookup", path: path.string, errno: code)
         }
-        guard let child = ntfs_inode_open(directory.pointee.vol, reference) else {
-            throw NTFS3GError.posix(operation: "open inode", path: path.string, errno: errno)
-        }
-        return child
+        return reference
     }
 
     /// Runs `body` with the directory at `path` open, then closes it and reports a failure to
