@@ -93,8 +93,10 @@ private struct EstimateTally {
         }
         var entries: Int64 = 0
         for item in items {
-            // INDEX_ENTRY header (16) + FILE_NAME attribute (66) + the UTF-16 name, 8-aligned.
-            entries += roundUp(16 + 66 + 2 * Int64(item.name.utf16.count), to: 8)
+            // INDEX_ENTRY header (16) + FILE_NAME attribute (66) + the UTF-16 name as stored
+            // (NFC), 8-aligned.
+            let nameLength = Int64(NTFSPath.normalized(item.name).utf16.count)
+            entries += roundUp(16 + 66 + 2 * nameLength, to: 8)
             recordBytes += Self.recordSize
             switch item.kind {
             case .file(let size):

@@ -28,12 +28,12 @@ enum Fixtures {
         }
     }
 
-    /// The NFD spelling of a name in the standard tree.
+    /// The NFD spelling of a name in the standard tree. copyTree stores it in NFC.
     static let decomposedName = "분해된 이름.txt".decomposedStringWithCanonicalMapping
 
     /// A small tree with every kind of item: empty and non-empty files and directories, a file
-    /// larger than one copy chunk, Korean names in NFC and in NFD, mixed-case names, and fixed
-    /// past times on everything (set after the contents, so that they stick).
+    /// larger than one copy chunk, Korean names in NFC and in NFD (on the host), mixed-case
+    /// names, and fixed past times on everything (set after the contents, so that they stick).
     static func makeStandardTree(at root: URL) throws {
         let base = root.path + "/"
         try makeFile(base + "a.txt", Array("hello\n".utf8))
@@ -136,6 +136,17 @@ struct TreeEntry: Equatable, CustomStringConvertible {
 
     var description: String {
         "\(String(decoding: path, as: UTF8.self)) \(kind) size=\(size) mtime=\(modification)"
+    }
+}
+
+extension [TreeEntry] {
+    /// The entries with their paths in Unicode NFC, the form NTFSVolume stores names in.
+    var withNFCPaths: [TreeEntry] {
+        map { entry in
+            var entry = entry
+            entry.path = [UInt8](String(decoding: entry.path, as: UTF8.self).precomposedStringWithCanonicalMapping.utf8)
+            return entry
+        }
     }
 }
 

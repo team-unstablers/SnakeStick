@@ -8,6 +8,11 @@ import Foundation
 /// The image holds exactly one partition, starting at byte 0 of the file. Placing it inside a
 /// disk image is up to the caller.
 ///
+/// Paths are absolute, such as `/sources/install.wim`. Every component is normalized to
+/// Unicode NFC before it is stored or looked up; beyond that, lookups match names exactly
+/// (case-sensitively), while creating an item fails if the directory already has a name that
+/// differs only in case.
+///
 /// All methods block on file I/O. The class is not `Sendable`: create it, use it and close it
 /// from one task, typically a background one. Call ``close()`` when done; it flushes the
 /// volume and reports errors that `deinit` could only log.

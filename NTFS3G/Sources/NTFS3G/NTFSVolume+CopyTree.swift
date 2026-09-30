@@ -11,7 +11,7 @@ extension NTFSVolume {
     /// to find the total size, then copied in name order. A symbolic link, FIFO, socket or
     /// device anywhere in the tree, or a name that Windows cannot use, is reported before
     /// anything is written. Other errors stop the copy and leave what was already copied in
-    /// place.
+    /// place. Names are stored in Unicode NFC, like every name this type writes.
     ///
     /// Each file and directory gets the host item's times: creation from the birth time,
     /// modification and access from the modification time (the host access time is not used,
@@ -49,9 +49,9 @@ extension NTFSVolume {
     ) throws {
         for item in items {
             let path = parent.appending(item.name)
-            let name = try NTFSName(item.name)
+            let name = try NTFSName(path.name!)
             guard !ntfs_forbidden_names(volume, name.characters, Int32(name.length), .true).isTrue else {
-                throw NTFS3GError.invalidName(item.name)
+                throw NTFS3GError.invalidName(path.name!)
             }
             _ = try item.ticks(path: path)
             switch item.kind {

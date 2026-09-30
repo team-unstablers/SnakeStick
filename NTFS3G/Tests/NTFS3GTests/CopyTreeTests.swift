@@ -22,11 +22,13 @@ import Testing
 
         let volume = try NTFSVolume(path: image, mode: .readOnly)
         defer { try? volume.close() }
-        let expected = try hostTree(source.path)
+        // Names as stored on the volume, byte for byte: the host's NFD name is stored in NFC.
+        let expected = try hostTree(source.path).withNFCPaths
         let actual = try volumeTree(volume)
         #expect(actual.map(\.description) == expected.map(\.description))
         #expect(actual == expected)
         #expect(summary == Fixtures.standardTreeSummary)
+        #expect(try volume.contentsOfDirectory("/한글 폴더").contains { sameBytes($0.name, "분해된 이름.txt") })
     }
 
     @Test func copyTreeSummaryMatchesSource() throws {
@@ -103,20 +105,17 @@ import Testing
             #expect(reports.allSatisfy { $0.totalBytes == Fixtures.standardTreeSummary.bytes })
             #expect(reports.last?.completedBytes == summary.bytes)
             #expect(zip(reports, reports.dropFirst()).allSatisfy { $0.completedBytes <= $1.completedBytes })
-            // Every file is reported, in name order, including the empty one.
+            // Every file is reported, including the empty one, in the order copyTree uses:
+            // String's < within each directory, depth first. Paths are NTFS paths, in NFC.
             var paths: [String] = []
             for report in reports where paths.last != report.currentPath {
                 paths.append(report.currentPath)
             }
-            #expect(paths == [
-                "/Big.bin", "/a.txt", "/empty.bin", "/Z/x",
-                "/한글 폴더/nested/deep.txt",
-                "/한글 폴더/" + Fixtures.decomposedName,
-                "/한글 폴더/한글 파일.txt",
-            ].sorted(by: { lhs, rhs in
-                // The order copyTree uses: String's < within each directory, depth first.
-                lhs.split(separator: "/").lexicographicallyPrecedes(rhs.split(separator: "/")) { $0 < $1 }
-            }))
+            let expected = [
+                "/Big.bin", "/Z/x", "/a.txt", "/empty.bin",
+                "/한글 폴더/nested/deep.txt", "/한글 폴더/분해된 이름.txt", "/한글 폴더/한글 파일.txt",
+            ]
+            #expect(paths.map { Array($0.utf8) } == expected.map { Array($0.utf8) })
             // The large file is reported chunk by chunk.
             #expect(reports.filter { $0.currentPath == "/Big.bin" }.count == 2)
         }

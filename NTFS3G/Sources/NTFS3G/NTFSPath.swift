@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 internal import CNTFS3G
-import Darwin
+import Foundation
 
 /// An absolute path inside an NTFS volume, split into components.
 ///
 /// Paths start with `/` and use `/` as the separator. Empty, `.` and `..` components are
-/// rejected, as is a trailing `/` on anything but the root. Components are compared and stored
-/// byte for byte: no Unicode normalization is applied.
+/// rejected, as is a trailing `/` on anything but the root.
+///
+/// Components are normalized to Unicode NFC, the form Windows produces, and are then stored and
+/// looked up byte for byte. NTFS itself does not normalize, and macOS's NTFS driver (FSKit)
+/// cannot open items whose names are stored decomposed (NFD), which is how Foundation and many
+/// macOS tools spell names on the host.
 struct NTFSPath {
     let components: [String]
 
@@ -34,9 +38,14 @@ struct NTFSPath {
             guard !part.isEmpty, !part.elementsEqual(".".utf8), !part.elementsEqual("..".utf8) else {
                 throw .invalidPath(string)
             }
-            components.append(String(decoding: part, as: UTF8.self))
+            components.append(Self.normalized(String(decoding: part, as: UTF8.self)))
         }
         self.init(components: components)
+    }
+
+    /// `name` in Unicode NFC.
+    static func normalized(_ name: String) -> String {
+        name.precomposedStringWithCanonicalMapping
     }
 
     var isRoot: Bool {
@@ -53,8 +62,9 @@ struct NTFSPath {
         NTFSPath(components: Array(components.dropLast()))
     }
 
+    /// This path with `name`, normalized to NFC, appended.
     func appending(_ name: String) -> NTFSPath {
-        NTFSPath(components: components + [name])
+        NTFSPath(components: components + [Self.normalized(name)])
     }
 
     /// The path made of the first `count` components.

@@ -151,10 +151,7 @@ import Testing
         let scratch = try ScratchDirectory()
         defer { scratch.remove() }
         let image = try scratch.makeVolume()
-        // Precomposed (NFC) and decomposed (NFD) spellings are different names on NTFS.
         let composed = "한글 파일.txt"
-        let decomposed = composed.decomposedStringWithCanonicalMapping
-        #expect(!sameBytes(composed, decomposed))
         let source = scratch.url.appendingPathComponent("source.txt")
         try Data("안녕".utf8).write(to: source)
 
@@ -162,7 +159,6 @@ import Testing
             let volume = try NTFSVolume(path: image, mode: .readWrite)
             try volume.writeFile("/" + composed, from: source)
             try volume.createDirectory("/디렉터리")
-            try volume.writeFile("/디렉터리/" + decomposed, contents: [1])
             try volume.close()
         }
 
@@ -172,14 +168,39 @@ import Testing
         #expect(root.count == 2)
         #expect(root.contains { sameBytes($0.name, composed) && $0.kind == .file })
         #expect(root.contains { sameBytes($0.name, "디렉터리") && $0.kind == .directory })
-        let nested = try volume.contentsOfDirectory("/디렉터리")
-        #expect(nested.count == 1)
-        #expect(sameBytes(nested[0].name, decomposed))
         #expect(try volume.readAll("/" + composed) == Array("안녕".utf8))
-        // Lookup is by exact bytes: the NFD spelling of the root file is a different name.
-        #expect(throws: NTFS3GError.notFound("/" + decomposed)) {
-            try volume.attributesOfItem("/" + decomposed)
+    }
+
+    @Test func namesAreStoredInNFC() throws {
+        let scratch = try ScratchDirectory()
+        defer { scratch.remove() }
+        let image = try scratch.makeVolume()
+        let composed = "분해된 이름.txt"
+        let decomposed = composed.decomposedStringWithCanonicalMapping
+        let decomposedDirectory = "폴더".decomposedStringWithCanonicalMapping
+        #expect(!sameBytes(composed, decomposed))
+
+        do {
+            let volume = try NTFSVolume(path: image, mode: .readWrite)
+            try volume.createDirectory("/" + decomposedDirectory)
+            try volume.writeFile("/" + decomposedDirectory + "/" + decomposed, contents: [1])
+            // Both spellings name the same item.
+            #expect(throws: NTFS3GError.alreadyExists("/폴더/" + composed)) {
+                try volume.writeFile("/폴더/" + composed, contents: [2])
+            }
+            try volume.close()
         }
+
+        let volume = try NTFSVolume(path: image, mode: .readOnly)
+        defer { try? volume.close() }
+        let root = try volume.contentsOfDirectory("/")
+        #expect(root.count == 1)
+        #expect(sameBytes(root[0].name, "폴더"))
+        let nested = try volume.contentsOfDirectory("/" + decomposedDirectory)
+        #expect(nested.count == 1)
+        #expect(sameBytes(nested[0].name, composed))
+        #expect(try volume.readAll("/폴더/" + composed) == [1])
+        #expect(try volume.readAll("/" + decomposedDirectory + "/" + decomposed) == [1])
     }
 
     @Test func writeEmptyContents() throws {
