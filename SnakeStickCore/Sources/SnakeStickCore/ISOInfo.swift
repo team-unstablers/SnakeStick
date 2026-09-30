@@ -71,7 +71,8 @@ public struct ISOInfo: Sendable, Codable, Equatable {
 
 let mebibyte: UInt64 = 1 << 20
 
-/// Reads the ISO without writing anything: its label, the Windows release in `sources/boot.wim`
+/// Reads the ISO without writing anything: its label, the Windows release in `sources/install.wim`
+/// (or `install.esd`; `sources/boot.wim` must exist and is the fallback)
 /// and the size of the target it needs. Mounts the ISO read-only for a few seconds.
 public func inspectISO(at path: String) async throws -> ISOInfo {
     try await Blocking.run {
@@ -156,13 +157,19 @@ final class ISOSession {
                 )
             }
             defer { wim.close() }
-            guard let image = images.first(where: { $0.index == 2 }) ?? images.last, let build = image.build else {
+            guard let setupImage = images.first(where: { $0.index == 2 }) ?? images.last, setupImage.build != nil else {
                 throw InstallerError(
                     phase: .openISO, kind: .invalidISO,
                     message: "\(path) is not a Windows ISO: sources/boot.wim names no Windows build.", path: path
                 )
             }
-            bootWIMImage = image.index
+            bootWIMImage = setupImage.index
+            // The release comes from the install image, as Rufus reads it (PopulateWindowsVersion):
+            // boot.wim holds Windows PE, whose build can be older than the product's (an ISO of
+            // build 26300 carries a 26100 boot.wim). boot.wim image 2 is the fallback. P6 named
+            // boot.wim; the user chose the install image on 2026-09-30 after this was found.
+            let image = ISOImage.installImage(under: self.mountPoint, log: tools.subprocess.log) ?? setupImage
+            let build = image.build ?? setupImage.build!
 
             let estimate: Int64
             do {
@@ -241,6 +248,28 @@ enum ISOImage {
             field.removeLast()
         }
         return String(decoding: field, as: UTF8.self)
+    }
+
+    /// Image 1 of `sources/install.wim`, `install.esd` or `install.swm` (the first that exists),
+    /// if it opens and names a build.
+    static func installImage(under root: URL, log: (String) -> Void) -> WIMImage? {
+        for name in ["install.wim", "install.esd", "install.swm"] {
+            guard let url = findItem(["sources", name], under: root) else {
+                continue
+            }
+            do {
+                let wim = try WIMFile(path: url.path)
+                defer { wim.close() }
+                if let image = try wim.images.first, image.build != nil {
+                    return image
+                }
+                log("sources/\(name) names no Windows build; using boot.wim")
+            } catch {
+                log("sources/\(name) cannot be read (\(error)); using boot.wim")
+            }
+            return nil
+        }
+        return nil
     }
 
     /// Finds `components` under `root`, matching each name ignoring case (ISO mounts may be

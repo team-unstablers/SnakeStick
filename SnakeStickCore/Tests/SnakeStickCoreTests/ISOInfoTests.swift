@@ -134,6 +134,22 @@ extension IntegrationTests {
         #expect(!info.supportsCA2023)
     }
 
+    /// The release comes from install.wim when boot.wim (Windows PE) is older, as on a real
+    /// build-26300 ISO whose boot.wim says 26100.
+    @Test func installImageDecidesTheRelease() async throws {
+        let scratch = try ScratchDirectory()
+        let fixture = try FixtureISO.make(in: scratch, ca2023: true, build: 26100, installBuild: 26300)
+        let info = try await inspectISO(at: fixture.iso.path)
+        #expect(info.build == 26300)
+        #expect(info.windowsVersion == "Windows 11 (build 26300)")
+        #expect(info.supportsCA2023)
+
+        let older = try FixtureISO.make(in: scratch, name: "older.iso", ca2023: false, build: 26100, installBuild: 26100)
+        let olderInfo = try await inspectISO(at: older.iso.path)
+        #expect(olderInfo.windowsVersion == "Windows 11 24H2")
+        #expect(!olderInfo.supportsCA2023)
+    }
+
     @Test func isoWithoutBootWIMIsRejected() async throws {
         let scratch = try ScratchDirectory()
         let tree = scratch.url.appendingPathComponent("tree")

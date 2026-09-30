@@ -117,7 +117,11 @@ struct FixtureISO {
 
     /// Builds `tree/` with `sources/boot.wim` (two images; image 2 carries `WINDOWS/ARCH` 9 and
     /// build 26200) and turns it into `name` with `hdiutil makehybrid -udf -iso`.
-    static func make(in scratch: ScratchDirectory, name: String = "test.iso", ca2023: Bool = true, build: Int = 26200) throws -> FixtureISO {
+    /// With `installBuild`, `sources/install.wim` is a real one-image WIM naming that build;
+    /// otherwise it is random bytes that do not open as a WIM.
+    static func make(
+        in scratch: ScratchDirectory, name: String = "test.iso", ca2023: Bool = true, build: Int = 26200, installBuild: Int? = nil
+    ) throws -> FixtureISO {
         // No ".iso" in the directory name: makehybrid takes such a source for an image.
         let stem = (name as NSString).deletingPathExtension
         let tree = scratch.url.appendingPathComponent("tree-\(stem)", isDirectory: true)
@@ -134,7 +138,17 @@ struct FixtureISO {
         try write("efi/microsoft/boot/bcd", pseudoRandomBytes(count: 16384, seed: 5))
         try write("efi/microsoft/boot/fonts/segoeui.ttf", pseudoRandomBytes(count: 5000, seed: 6))
         try write("efi/microsoft/boot/fonts/wgl4_boot.ttf", pseudoRandomBytes(count: 6000, seed: 7))
-        try write("sources/install.wim", pseudoRandomBytes(count: 3 * 1024 * 1024 + 11, seed: 8))
+        if let installBuild {
+            let content = scratch.url.appendingPathComponent("install-\(stem)", isDirectory: true)
+            try fm.createDirectory(at: content.appendingPathComponent("Windows"), withIntermediateDirectories: true)
+            try Data(pseudoRandomBytes(count: 3 * 1024 * 1024 + 11, seed: 8)).write(to: content.appendingPathComponent("Windows/explorer.exe"))
+            try fm.createDirectory(at: tree.appendingPathComponent("sources"), withIntermediateDirectories: true)
+            try WIMFile.create(from: content, to: tree.appendingPathComponent("sources/install.wim").path, imageName: "Windows 11 Pro", properties: [
+                "WINDOWS/ARCH": "9", "WINDOWS/VERSION/MAJOR": "10", "WINDOWS/VERSION/BUILD": "\(installBuild)",
+            ])
+        } else {
+            try write("sources/install.wim", pseudoRandomBytes(count: 3 * 1024 * 1024 + 11, seed: 8))
+        }
         try write("sources/empty.txt", [])
         try write("support/logging/readme.txt", Array("logging\n".utf8))
         try write("sources/ko-kr/설치.txt", Array("한국어\n".utf8))
