@@ -10,11 +10,12 @@ import SwiftUI
 
 @main
 struct SnakeStickApp: App {
-    @State private var model = InstallerViewModel()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
         Window("SnakeStick", id: "main") {
-            ContentView(model: model)
+            ContentView(model: appDelegate.model)
+                .background(WindowAccessor { appDelegate.guardMainWindow($0) })
         }
         .windowResizability(.contentSize)
         .commands {
@@ -24,7 +25,7 @@ struct SnakeStickApp: App {
         }
 
         Window("Log", id: LogView.windowID) {
-            LogView(model: model)
+            LogView(model: appDelegate.model)
         }
 
         Window("About SnakeStick", id: AboutView.windowID) {

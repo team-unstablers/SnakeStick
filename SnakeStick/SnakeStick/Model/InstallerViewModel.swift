@@ -22,6 +22,12 @@ final class InstallerViewModel {
         case failed(InstallerError)
     }
 
+    /// Closing the main window or quitting while a job runs goes through 05, like "Cancel".
+    enum ExitRequest {
+        case closeWindow
+        case quit
+    }
+
     struct ISOState: Equatable {
         var url: URL
         var info: ISOInfo?
@@ -40,7 +46,9 @@ final class InstallerViewModel {
     var useCA2023 = false
 
     // Progress
-    private(set) var stage: Stage = .idle
+    private(set) var stage: Stage = .idle {
+        didSet { performDeferredExit() }
+    }
     private(set) var stoppedByUser = false
     private(set) var log: [String] = []
 
@@ -58,6 +66,12 @@ final class InstallerViewModel {
     @ObservationIgnored private let logger = Logger(subsystem: HelperConstants.appBundleIdentifier, category: "installer")
     /// The disk the current or last job wrote to, for the eject button and the messages.
     @ObservationIgnored private var jobDisk: DiskCandidate?
+    /// What 05 is up for: nil for "Cancel", otherwise the close or quit that asked.
+    @ObservationIgnored private var exitRequest: ExitRequest?
+    /// A close or quit that "Stop" held back until the job has been cleaned up.
+    @ObservationIgnored private var deferredExit: ExitRequest?
+    /// Closes the main window or quits; set by `AppDelegate`.
+    @ObservationIgnored var performExit: ((ExitRequest) -> Void)?
 
     init() {
         helper.onEvent = { [weak self] event in self?.handle(event) }
@@ -228,15 +242,52 @@ final class InstallerViewModel {
         guard isBusy else {
             return
         }
+        exitRequest = nil
         showsCancelConfirmation = true
+    }
+
+    /// Closing the main window or quitting. While a job runs this is refused and 05 comes up
+    /// instead; after "Stop", the close or quit happens once the job has been cleaned up. Quitting
+    /// must not skip 05: the helper cancels the job when the app disconnects.
+    func allowsExit(_ request: ExitRequest) -> Bool {
+        guard isBusy else {
+            return true
+        }
+        if stoppedByUser {
+            deferExit(request)
+        } else {
+            exitRequest = request
+            showsCancelConfirmation = true
+        }
+        return false
     }
 
     /// "Stop" in 05.
     func confirmCancel() {
         stoppedByUser = true
+        if let exitRequest {
+            deferExit(exitRequest)
+        }
         Task {
             try? await helper.cancel()
         }
+    }
+
+    /// Quitting also covers closing the window.
+    private func deferExit(_ request: ExitRequest) {
+        if deferredExit != .quit {
+            deferredExit = request
+        }
+    }
+
+    private func performDeferredExit() {
+        guard !isBusy, let exit = deferredExit else {
+            return
+        }
+        deferredExit = nil
+        exitRequest = nil
+        // After the stage change has been handled.
+        Task { performExit?(exit) }
     }
 
     /// "Done" in 06 → 02.
