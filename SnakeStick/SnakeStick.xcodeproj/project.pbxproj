@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2BBF594B6FCF47CFA047D4E9 /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 183EC4C6A65544078C11E41D /* COPYING */; };
 		8265EACEF77542789FBD6B3D /* SnakeStickCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2A03B02B4FE94B59A1759486 /* SnakeStickCore */; };
 		9B1DD009AC01418689AFDCFA /* SnakeStickCore in Frameworks */ = {isa = PBXBuildFile; productRef = 595345F718BD40EE96945B39 /* SnakeStickCore */; };
 		48AAE532E7C74A8D9F11B230 /* SnakeStickHelper in Embed Helper */ = {isa = PBXBuildFile; fileRef = A02E833272F241FE8090F5B7 /* SnakeStickHelper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -63,6 +64,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		183EC4C6A65544078C11E41D /* COPYING */ = {isa = PBXFileReference; lastKnownFileType = text; name = COPYING; path = ../COPYING; sourceTree = SOURCE_ROOT; };
 		A02E833272F241FE8090F5B7 /* SnakeStickHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = SnakeStickHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		56FF0BBCDE614922A4BFC78E /* pl.unstabler.aislop.SnakeStick.helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = pl.unstabler.aislop.SnakeStick.helper.plist; sourceTree = "<group>"; };
 		F6BD17A1306C65C500CA4D17 /* SnakeStick.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SnakeStick.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -125,6 +127,7 @@
 				F6BD17A3306C65C500CA4D17 /* SnakeStick */,
 				9B704CD943354F55A912ED63 /* SnakeStickHelper */,
 				2BE4BD463A8E4988840E841F /* LaunchDaemons */,
+				183EC4C6A65544078C11E41D /* COPYING */,
 				F6BD17B1306C65C600CA4D17 /* SnakeStickTests */,
 				F6BD17BB306C65C600CA4D17 /* SnakeStickUITests */,
 				F6BD17A2306C65C500CA4D17 /* Products */,
@@ -299,6 +302,7 @@
 		F6BD179F306C65C500CA4D17 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
+				2BBF594B6FCF47CFA047D4E9 /* COPYING in Resources */,
 			);
 		};
 		F6BD17AC306C65C600CA4D17 /* Resources */ = {
@@ -488,7 +492,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 team unstablers Inc.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -519,7 +523,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 team unstablers Inc.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

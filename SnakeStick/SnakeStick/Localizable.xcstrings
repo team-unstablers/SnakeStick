@@ -39,6 +39,66 @@
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "약 %lld분 남음" } }
       }
     },
+    "About SnakeStick" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick에 관하여" } }
+      }
+    },
+    "Full License Text…" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "라이선스 전문…" } }
+      }
+    },
+    "GNU GPL v2" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2" } }
+      }
+    },
+    "GNU GPL v2 or later" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2 이상" } }
+      }
+    },
+    "GNU GPL v3" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3" } }
+      }
+    },
+    "GNU GPL v3 or later" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3 이상" } }
+      }
+    },
+    "Its source code was used as a reference" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "소스 코드를 참고했습니다" } }
+      }
+    },
+    "Source Code" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "소스 코드" } }
+      }
+    },
+    "This software is open source software licensed under the GPLv3.\nThis software comes with no warranty." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 소프트웨어는 GPLv3로 라이선스된 오픈 소스 소프트웨어입니다.\n이 소프트웨어는 어떠한 보증도 제공하지 않습니다." } }
+      }
+    },
+    "This software was made possible by the free software below.\nThank you for making such great software!" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 소프트웨어는 아래 자유 소프트웨어 덕분에 만들어질 수 있었습니다.\n멋진 소프트웨어를 만들어 주셔서 감사합니다!" } }
+      }
+    },
+    "This software was written by an LLM-based coding agent under human supervision." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 소프트웨어는 사람의 감독 하에 LLM 기반 코딩 에이전트가 작성했습니다." } }
+      }
+    },
+    "Version %@ (%@)" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "버전 %@ (%@)" } }
+      }
+    },
     "After writing, reads the NTFS volume on the stick back and compares it with the ISO's file tree." : {
       "localizations" : {
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "기록을 마친 뒤 스틱의 NTFS 볼륨을 다시 읽어 ISO의 파일 트리와 비교합니다." } }
