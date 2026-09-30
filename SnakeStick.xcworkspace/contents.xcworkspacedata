@@ -11,9 +11,9 @@
       location = "group:NTFS3G">
    </FileRef>
    <FileRef
-      location = "group:WIMLib">
+      location = "group:SnakeStickCore">
    </FileRef>
    <FileRef
-      location = "group:SnakeStickCore">
+      location = "group:WIMLib">
    </FileRef>
 </Workspace>
