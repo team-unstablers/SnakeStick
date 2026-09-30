@@ -9,6 +9,7 @@ The Swift API is implemented. Work is tracked by the task documents in `Prompts/
 | Stage | Document | Scope | State |
 |---|---|---|---|
 | 10 | `Prompts/10-swift-api.xml` | Swift API: format, write, copy a tree, read back, size estimate | implemented (`Prompts/10-swift-api.report.md`) |
+| 20 | `Prompts/20-remove.xml` | `removeItem`: remove a file or an empty directory | implemented (`Prompts/20-remove.report.md`) |
 
 Windows itself has not yet read a volume made by this package (see KNOWN LIMITATIONS).
 
@@ -36,6 +37,10 @@ let volume = try NTFSVolume(path: image, mode: .readWrite)
 let summary = try volume.copyTree(from: source) { progress in
     print("\(progress.completedBytes) / \(progress.totalBytes) \(progress.currentPath)")
 }
+
+// Replace a copied file. writeFile never overwrites, so remove the old one first.
+try volume.removeItem("/efi/boot/bootx64.efi")
+try volume.writeFile("/efi/boot/bootx64.efi", from: URL(fileURLWithPath: "/tmp/bootx64.efi"))
 try volume.close()
 print("\(summary.files) files, \(summary.directories) directories, \(summary.bytes) bytes")
 
@@ -56,7 +61,7 @@ NTFS3G builds the NTFS data partition of SnakeStick's Windows installation media
 
 | Type | Role |
 |---|---|
-| `NTFSVolume` | A mounted volume. `format(path:options:)`, `estimatedVolumeSize(forTreeAt:clusterSize:)`, `init(path:mode:)`, `createDirectory`, `writeFile` (from a host file or from bytes), `copyTree`, `contentsOfDirectory`, `attributesOfItem`, `readFile`, `close()` |
+| `NTFSVolume` | A mounted volume. `format(path:options:)`, `estimatedVolumeSize(forTreeAt:clusterSize:)`, `init(path:mode:)`, `createDirectory`, `writeFile` (from a host file or from bytes), `copyTree`, `removeItem`, `contentsOfDirectory`, `attributesOfItem`, `readFile`, `close()` |
 | `NTFSFormatOptions` | Label, cluster size, sector size (512 or 4096) and partition start sector (recorded in the boot sector) |
 | `NTFSFileTimes` | Creation, modification and access times |
 | `NTFSDirectoryEntry`, `NTFSItemAttributes`, `NTFSItemKind` | Results of the read calls |
@@ -67,8 +72,9 @@ NTFS3G builds the NTFS data partition of SnakeStick's Windows installation media
 
 - **Paths** are absolute NTFS paths such as `/sources/install.wim`. Empty, `.` and `..` components are rejected (`invalidPath`).
 - **Names** are normalized to Unicode NFC before they are stored or looked up. Names that Windows cannot use are rejected (`invalidName`): the characters `"*/:<>?\|` and control characters, a trailing dot or space, reserved device names (`CON`, `NUL`, `COM1`, ...), and more than 255 UTF-16 code units. Volume labels follow the same rules except for device names, with a limit of 32 code units.
-- **Case.** Lookups match names exactly. Creating an item fails with `alreadyExists` if the directory already has a name that differs only in case, because Windows could not tell the two apart.
-- **Nothing is overwritten.** Creating a file or directory that already exists is an error. Parents must exist; intermediate directories are not created. There is no delete, rename or truncate.
+- **Case.** Lookups match names exactly. Creating an item fails with `alreadyExists` if the directory already has a name that differs only in case, because Windows could not tell the two apart. `removeItem` is the exception: it matches every component of its path ignoring case (an exact match is preferred), so `/EFI/Boot/BOOTX64.EFI` removes the `/efi/boot/bootx64.efi` that `copyTree` copied from an ISO.
+- **Nothing is overwritten.** Creating a file or directory that already exists is an error. Parents must exist; intermediate directories are not created. To replace a file, remove it with `removeItem` and write it again. There is no rename or truncate.
+- **`removeItem`** removes a file or an empty directory. A directory with entries is not removed (`directoryNotEmpty`); there is no recursive delete. `/` is an `invalidPath`. NTFS metadata files (`$MFT`, `$Bitmap`, ..., `$Extend` and everything in it) are refused with `posix` `EPERM`, as the ntfs-3g driver does.
 - **Times.** `writeFile` and `createDirectory` take optional times, applied after the data is written. `copyTree` maps the host's birth time to creation and the modification time to both modification and access. NTFS's fourth time, the MFT change time, is always the current time.
 - **`copyTree`** copies the contents of a host directory into an existing directory, like `cp -R source/. destination`. It scans the whole tree first with `lstat`, so symbolic links, FIFOs, sockets, devices and names Windows cannot use are reported before anything is written. Files and directories are copied in name order in 8 MiB chunks; progress is reported per chunk. An error stops the copy and leaves what was copied; the usual recovery is to discard the image.
 - **`estimatedVolumeSize`** returns a conservative size, a multiple of 1 MiB, for which `format` followed by `copyTree` of the same tree succeeds. See DESIGN NOTES.
@@ -89,7 +95,7 @@ NTFS3G builds the NTFS data partition of SnakeStick's Windows installation media
 - **mkntfs in-process.** mkntfs is a program meant to run once per process. `Vendor/CNTFS3G/mkntfs_entry.c` compiles `ntfsprogs/mkntfs.c` as part of itself (it is left out of the sources list) so that it can: reset mkntfs's static variables after each run, because `mkntfs_cleanup()` leaves a dangling list pointer that makes a second run crash or hang; redirect mkntfs's `utils_set_locale()` call, which would switch the whole process to the environment's locale (turning the decimal point into a comma under a German locale, for every thread, even while mkntfs runs), to a function that does nothing; and restore the libntfs-3g log handler and log levels that mkntfs changes. `main` is renamed with `-Dmain=ntfs3g_mkntfs_main`, and runs are serialized with a mutex. When the submodule moves to another tag, check the list of statics in `reset_mkntfs_globals()` against `mkntfs.c`.
 - **Logging.** The first call to `NTFSVolume.format` or `NTFSVolume.init` installs libntfs-3g's stderr log handler for the whole process (the library default discards messages). Errors and warnings from libntfs-3g therefore appear on stderr. There is no API to redirect them.
 - **Names in NFC.** NTFS stores names as UTF-16 without normalization. Windows produces NFC; Foundation and many macOS tools produce NFD (decomposed) names on the host, which a byte-exact copy would carry over. macOS's own NTFS driver (FSKit) cannot open items whose names are stored in NFD: it lists them, but every lookup fails. NTFS3G therefore normalizes every name it writes or looks up to NFC.
-- **Case collisions** are found with libntfs-3g's own lookup run case-insensitively: `cntfs3g_lookup_ignoring_case()` clears the volume's case-sensitive flag for the duration of one `ntfs_inode_lookup_by_name()` call. The directory index is ordered by upper-cased name, so this is a normal B+tree lookup. `ntfs_set_ignore_case()` is not used because it would also make listings return lower-cased names.
+- **Case collisions** are found with libntfs-3g's own lookup run case-insensitively: `cntfs3g_lookup_ignoring_case()` clears the volume's case-sensitive flag for the duration of one `ntfs_inode_lookup_by_name()` call. The directory index is ordered by upper-cased name, so this is a normal B+tree lookup. `ntfs_set_ignore_case()` is not used because it would also make listings return lower-cased names. `removeItem` finds its path the same way, and `cntfs3g_delete_ignoring_case()` clears the flag around `ntfs_delete()` too: `ntfs_delete()` matches the name to remove again, and on a case-sensitive mount it compares POSIX-namespace names, the only kind `ntfs_create()` makes, exactly.
 - **Size estimate.** The sum of: file data rounded up to clusters (even files small enough to live in their MFT record count as one cluster); a 4 KiB MFT record per item plus 16 records of slack (records are 1 KiB with 512-byte sectors and 4 KiB with 4096-byte sectors; the estimate does not know which); for each non-empty directory, three times its index entries plus one 4 KiB index block, because B+tree nodes may be half empty; 1 MiB + 8 clusters for the empty volume's metadata (measured at 435 to 896 KiB); `$LogFile` (2 MiB below 200 MiB, 1/200 of the volume up to 12 GiB, 64 MiB above) and the cluster bitmap for the resulting size, found by iterating to a fixed point; one cluster for the backup boot sector; and a margin of 4 MiB plus 1/512 of the data. Measurements are in `Prompts/10-swift-api.report.md`.
 
 # KNOWN LIMITATIONS
@@ -100,7 +106,7 @@ These are accepted trade-offs, not design goals.
 - **File names are in the POSIX namespace, with no DOS 8.3 names.** `ntfs_create()` creates names that way; Windows creates Win32 names and, depending on settings, 8.3 aliases. Windows is expected to read such volumes, but that has not been verified, nor has Windows `chkdsk` been run on one.
 - **Names stored in NFD cannot be opened.** Volumes written by NTFS3G contain only NFC names, but a volume written elsewhere may contain NFD names; they appear in listings and cannot be looked up through this API, nor through macOS's NTFS driver. NFC normalization also replaces the few characters with singleton decompositions, such as CJK compatibility ideographs, with their canonical equivalents.
 - **mkntfs is patched from the outside.** The reset of its statics and the redirected locale call depend on the internals of `mkntfs.c` at the pinned tag.
-- **No delete, rename, truncate or attribute changes**, and no alternate data streams, sparse files, compression or security descriptors beyond libntfs-3g's defaults. SnakeStick only builds new volumes.
+- **No recursive delete, rename, truncate or attribute changes**, and no alternate data streams, sparse files, compression or security descriptors beyond libntfs-3g's defaults. SnakeStick only builds new volumes; `removeItem` exists so that it can replace a few copied files.
 - **macOS only.**
 
 # REQUIREMENTS

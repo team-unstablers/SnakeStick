@@ -11,7 +11,7 @@ import Foundation
 /// Paths are absolute, such as `/sources/install.wim`. Every component is normalized to
 /// Unicode NFC before it is stored or looked up; beyond that, lookups match names exactly
 /// (case-sensitively), while creating an item fails if the directory already has a name that
-/// differs only in case.
+/// differs only in case. ``removeItem(_:)`` alone matches its path ignoring case.
 ///
 /// All methods block on file I/O. The class is not `Sendable`: create it, use it and close it
 /// from one task, typically a background one. Call ``close()`` when done; it flushes the
