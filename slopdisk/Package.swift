@@ -19,8 +19,13 @@ let package = Package(
         ),
     ],
     targets: [
+        // Disk ioctls for SDRawDevice; their request macros are not importable into Swift.
+        .target(
+            name: "CSlopDiskShim"
+        ),
         .target(
             name: "SlopDisk",
+            dependencies: ["CSlopDiskShim"],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
             ],
