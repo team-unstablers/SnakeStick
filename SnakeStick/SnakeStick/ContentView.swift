@@ -56,6 +56,13 @@ struct ContentView: View {
         } message: {
             Text("If you stop now, “\(model.jobDiskModel)” will be left unbootable. To use it, you have to start over.")
         }
+        .alert("Allow Full Disk Access for SnakeStick", isPresented: $model.showsFullDiskAccessNotice) {
+            Button("Open System Settings") { Self.openFullDiskAccessSettings() }
+                .keyboardShortcut(.defaultAction)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("macOS keeps the helper that writes the disk away from removable disks and your folders until SnakeStick has Full Disk Access. Add SnakeStick in System Settings > Privacy & Security > Full Disk Access, then try again.")
+        }
         .alert("Allow the SnakeStick helper", isPresented: $model.showsApprovalNotice) {
             Button("Open System Settings") { HelperClient.openLoginItems() }
                 .keyboardShortcut(.defaultAction)
@@ -66,6 +73,15 @@ struct ContentView: View {
     }
 
     static let isoType = UTType("public.iso-image") ?? UTType(filenameExtension: "iso") ?? .diskImage
+
+    /// Opens Privacy & Security > Full Disk Access and shows the app in the Finder, ready to be
+    /// dragged into the list. Access granted to the app covers the helper inside its bundle.
+    static func openFullDiskAccessSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
+            NSWorkspace.shared.open(url)
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
+    }
 
     private var eraseTitle: String {
         String(localized: "Erase “\(model.selectedCandidate?.model ?? "")”?")

@@ -18,6 +18,11 @@ public enum HelperConstants {
     public static let protocolVersion = 2
     /// The `rejected` reason when the user dismissed the authentication dialog.
     public static let authorizationCancelled = "authorization cancelled"
+    /// The `rejected` reason when the daemon lacks Full Disk Access. TCC keeps launchd daemons,
+    /// root or not, away from removable disks (`kTCCServiceSystemPolicyRemovableVolumes`) and
+    /// from `~/Downloads` and similar folders, and a daemon cannot ask the user. Full Disk Access
+    /// granted to the app covers the daemon inside its bundle (seen on 2026-09-30).
+    public static let fullDiskAccessRequired = "full disk access required"
 }
 
 /// App → daemon. The daemon runs one job at a time (`code#xpc`).

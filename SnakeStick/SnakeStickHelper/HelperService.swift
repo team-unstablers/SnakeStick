@@ -37,6 +37,18 @@ final class HelperService: @unchecked Sendable {
         )
     }()
 
+    /// Whether TCC lets this process read files that only Full Disk Access opens. The TCC
+    /// database is such a file, root or not; opening it is the usual probe. Anything other than
+    /// EPERM (the file missing, say) is not taken as a denial.
+    static func hasFullDiskAccess() -> Bool {
+        let fd = open("/Library/Application Support/com.apple.TCC/TCC.db", O_RDONLY)
+        if fd >= 0 {
+            close(fd)
+            return true
+        }
+        return errno != EPERM
+    }
+
     private var sessionCount = 0
 
     /// Counts a connection from the app.
@@ -94,6 +106,12 @@ final class HelperService: @unchecked Sendable {
     private func start(_ request: InstallerRequest, authorization: Data, prompt: String, session: XPCSession) -> HelperReply {
         if lock.withLock({ job != nil }) {
             return .rejected(reason: "Another write is in progress.")
+        }
+        // Checked before the administrator is asked for anything: without Full Disk Access the
+        // job would fail at the first open of the ISO or the disk (EPERM from TCC).
+        guard Self.hasFullDiskAccess() else {
+            logger.error("start rejected: no Full Disk Access")
+            return .rejected(reason: HelperConstants.fullDiskAccessRequired)
         }
         // The app is not trusted with the target (C21): only whole disks, checked against P8 here.
         guard case .device(let bsdName) = request.target else {

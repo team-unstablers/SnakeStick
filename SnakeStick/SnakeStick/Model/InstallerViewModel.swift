@@ -48,6 +48,7 @@ final class InstallerViewModel {
     var showsEraseConfirmation = false
     var showsCancelConfirmation = false
     var showsApprovalNotice = false
+    var showsFullDiskAccessNotice = false
 
     /// The tag of the disabled note at the bottom of the disk menu.
     static let noteTag = "--note--"
@@ -209,6 +210,9 @@ final class InstallerViewModel {
                 }
             case .rejected(let reason) where reason == HelperConstants.authorizationCancelled:
                 stage = .idle
+            case .rejected(let reason) where reason == HelperConstants.fullDiskAccessRequired:
+                stage = .idle
+                showsFullDiskAccessNotice = true
             case .rejected(let reason):
                 fail(helperError(String(localized: "The helper refused the write: \(reason)")))
             default:
