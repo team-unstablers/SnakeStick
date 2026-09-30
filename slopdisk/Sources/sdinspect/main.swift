@@ -4,8 +4,9 @@
 //
 //  Created by Gyuhwan Park on 9/30/26.
 //
-//  Read-only inspection of a disk image's partition table structures.
-//  Every open in this target uses `.readOnly`; no write path of SlopDisk may be reachable from here.
+//  Read-only inspection of the partition table structures of a disk image or a disk device.
+//  Every open in this target is read-only (`.readOnly`, `SDRawDevice(readOnlyPath:)`);
+//  no write path of SlopDisk may be reachable from here.
 //
 
 import Foundation
@@ -38,13 +39,19 @@ func run(_ arguments: [String]) -> ExitStatus {
 
     let inspection: SDInspection
     do throws(SDError) {
-        let sectorSize: Int
-        if let requested = options.sectorSize {
-            sectorSize = requested
+        let device: any SDBlockDevice
+        if options.isDevicePath {
+            // The geometry comes from the device's ioctls.
+            device = try SDRawDevice(readOnlyPath: options.path)
         } else {
-            sectorSize = try SDDiskImage.detectSectorSize(path: options.path)
+            let sectorSize: Int
+            if let requested = options.sectorSize {
+                sectorSize = requested
+            } else {
+                sectorSize = try SDDiskImage.detectSectorSize(path: options.path)
+            }
+            device = try SDFileBlockDevice(path: options.path, mode: .readOnly, sectorSize: sectorSize)
         }
-        let device = try SDFileBlockDevice(path: options.path, mode: .readOnly, sectorSize: sectorSize)
         inspection = try SDInspection.read(from: device)
     } catch {
         writeStandardError("sdinspect: \(options.path): \(describe(error))\n")

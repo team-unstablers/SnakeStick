@@ -13,11 +13,13 @@ struct Arguments: Equatable {
 
     static let usage = """
         usage: sdinspect [--sector-size 512|4096] [--hex] [--help] <image-path>
+               sdinspect [--hex] /dev/<device>
 
-        Prints the protective MBR, both GPT headers (with CRC status), and the partition table of a disk image.
-        The image is opened read-only.
+        Prints the protective MBR, both GPT headers (with CRC status), and the partition table of a disk image
+        or a disk device (a path under /dev/, e.g. /dev/rdisk4). Everything is opened read-only.
 
-          --sector-size N   Use N-byte sectors (512 or 4096) instead of detecting them.
+          --sector-size N   Use N-byte sectors (512 or 4096) instead of detecting them. Image files only;
+                            a device reports its own sector size.
           --hex             Append hex dumps of LBA 0, LBA 1, and the backup header sector.
           --help            Show this help.
 
@@ -87,7 +89,16 @@ struct Arguments: Equatable {
         guard let path else {
             return .usageError("missing image path")
         }
-        return .run(Arguments(sectorSize: sectorSize, hex: hex, path: path))
+        let arguments = Arguments(sectorSize: sectorSize, hex: hex, path: path)
+        if arguments.isDevicePath, sectorSize != nil {
+            return .usageError("--sector-size cannot be used with a device; its sector size comes from the device")
+        }
+        return .run(arguments)
+    }
+
+    /// Paths under `/dev/` are opened as disk devices, everything else as image files.
+    var isDevicePath: Bool {
+        path.hasPrefix("/dev/")
     }
 
     private static func parseSectorSize(_ value: String) -> Int? {
