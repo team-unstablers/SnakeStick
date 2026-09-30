@@ -53,6 +53,8 @@ let package = Package(
             name: "SnakeStickCoreTests",
             dependencies: [
                 "SnakeStickCore",
+                // For the argument parser and exit codes; the built binary is run as well.
+                "snakestick",
                 .product(name: "SlopDisk", package: "slopdisk"),
                 .product(name: "NTFS3G", package: "NTFS3G"),
                 .product(name: "WIMLib", package: "WIMLib"),
