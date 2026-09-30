@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import Foundation
 
 /// Runs an external tool and collects its output. Used for `hdiutil`, `diskutil` and

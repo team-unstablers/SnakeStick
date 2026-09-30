@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Downloads the Microsoft-signed UEFI:NTFS loader and NTFS driver binaries from the upstream
 # GitHub releases into Sources/SnakeStickCore/Resources/UEFI-NTFS and rewrites VERSIONS.md with

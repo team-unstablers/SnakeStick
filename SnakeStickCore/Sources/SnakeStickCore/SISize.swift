@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import Foundation
 
 /// Byte counts written with SI suffixes, as `--imgsize` takes them.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import Foundation
 
 /// `hdiutil` and `diskutil` invocations shared by the pipeline and `inspectISO`.
