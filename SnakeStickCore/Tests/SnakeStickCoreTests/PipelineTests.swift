@@ -190,6 +190,47 @@ extension IntegrationTests {
         #expect(try attachedImageCount() == before)
     }
 
+    /// The app mounts the ISO for the root helper, which TCC keeps out of `~/Downloads`: the
+    /// pipeline must use the mount and never open `isoPath` (here a path that does not exist).
+    @Test func usesAnISOMountedByTheCaller() async throws {
+        let before = try attachedImageCount()
+        let scratch = try ScratchDirectory()
+        let fixture = try FixtureISO.make(in: scratch, ca2023: false)
+        let info = try await inspectISO(at: fixture.iso.path)
+        let mounted = try await MountedISO.mount(fixture.iso.path)
+        #expect(mounted.prepared.volumeLabel == FixtureISO.label)
+        #expect(mounted.prepared.fileSize == info.fileSize)
+        #expect(try attachedImageCount() == before + 1)
+
+        let image = scratch.path("prepared.img")
+        let events = LockedBox<[InstallerEvent]>([])
+        let result = try await runInstaller(InstallerRequest(
+            isoPath: "/nonexistent/only-named-in-messages.iso",
+            target: .image(path: image, size: info.requiredBytes + Self.extraBytes),
+            preparedISO: mounted.prepared
+        )) { events.value.append($0) }
+        #expect(result.verified)
+        #expect(!events.value.contains { if case .log(let line) = $0 { line.contains("-readonly") } else { false } })
+        #expect(try attachedImageCount() == before + 1, "the pipeline leaves the caller's ISO attached")
+        try ImageChecks.check(image: image, fixture: fixture, label: FixtureISO.label, scratch: scratch)
+
+        await mounted.unmount()
+        #expect(try attachedImageCount() == before)
+        #expect(!FileManager.default.fileExists(atPath: mounted.prepared.mountPoint))
+    }
+
+    @Test func missingPreparedMountIsReported() async throws {
+        let scratch = try ScratchDirectory()
+        let error = await #expect(throws: InstallerError.self) {
+            try await runInstaller(InstallerRequest(
+                isoPath: "/nonexistent/x.iso", target: .image(path: scratch.path("x.img"), size: 1 << 30),
+                preparedISO: PreparedISO(mountPoint: scratch.path("not-mounted"), volumeLabel: "X", fileSize: 1)
+            )) { _ in }
+        }
+        #expect(error?.phase == .openISO)
+        #expect(!FileManager.default.fileExists(atPath: scratch.path("x.img")))
+    }
+
     @Test func ca2023NeedsLoadersInBootWIM() async throws {
         let scratch = try ScratchDirectory()
         let fixture = try FixtureISO.make(in: scratch, ca2023: false)

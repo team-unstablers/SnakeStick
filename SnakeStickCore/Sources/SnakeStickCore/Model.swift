@@ -33,11 +33,32 @@ public struct InstallerRequest: Sendable, Codable, Equatable {
     public var isoPath: String
     public var target: InstallerTarget
     public var options: InstallerOptions
+    /// The ISO already mounted by the caller. The pipeline then reads only the mount point and
+    /// never opens `isoPath`, which the root helper may not be allowed to read (TCC protects
+    /// `~/Downloads` and similar folders from launchd daemons). The caller unmounts it.
+    public var preparedISO: PreparedISO?
 
-    public init(isoPath: String, target: InstallerTarget, options: InstallerOptions = .init()) {
+    public init(isoPath: String, target: InstallerTarget, options: InstallerOptions = .init(), preparedISO: PreparedISO? = nil) {
         self.isoPath = isoPath
         self.target = target
         self.options = options
+        self.preparedISO = preparedISO
+    }
+}
+
+/// An ISO mounted by the app with the user's file access (see ``MountedISO``).
+public struct PreparedISO: Sendable, Codable, Equatable {
+    /// Where the ISO's file system is mounted.
+    public var mountPoint: String
+    /// The ISO 9660 volume identifier, read from the file by the app.
+    public var volumeLabel: String
+    /// The size of the ISO file.
+    public var fileSize: UInt64
+
+    public init(mountPoint: String, volumeLabel: String, fileSize: UInt64) {
+        self.mountPoint = mountPoint
+        self.volumeLabel = volumeLabel
+        self.fileSize = fileSize
     }
 }
 
