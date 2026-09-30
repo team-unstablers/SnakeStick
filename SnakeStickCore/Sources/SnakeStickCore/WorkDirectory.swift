@@ -10,9 +10,21 @@ final class WorkDirectory: Sendable {
     private let log: @Sendable (String) -> Void
 
     init(log: @escaping @Sendable (String) -> Void) throws {
-        url = URL(fileURLWithPath: "/tmp/snakestick-\(getuid())-\(UUID().uuidString)", isDirectory: true)
+        let path = "/tmp/snakestick-\(getuid())-\(UUID().uuidString)"
+        try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        // /tmp is a symbolic link to /private/tmp, and the mount table lists the resolved path.
+        // URL.resolvingSymlinksInPath() would strip /private again, so use realpath(3).
+        url = URL(fileURLWithPath: Self.canonicalPath(path), isDirectory: true)
         self.log = log
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+    }
+
+    /// `path` with every symbolic link resolved, as the mount table spells it.
+    static func canonicalPath(_ path: String) -> String {
+        guard let resolved = realpath(path, nil) else {
+            return path
+        }
+        defer { free(resolved) }
+        return String(cString: resolved)
     }
 
     func subdirectory(_ name: String) throws -> URL {

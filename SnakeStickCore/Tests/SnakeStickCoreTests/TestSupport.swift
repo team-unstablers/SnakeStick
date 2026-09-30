@@ -10,6 +10,19 @@ enum TestEnvironment {
     static let integration = ProcessInfo.processInfo.environment["SNAKESTICK_TEST_INTEGRATION"] == "1"
 }
 
+/// Parent of every suite that attaches images. Serialized as a whole, so that the attached-image
+/// count each test compares before and after is not changed by another suite running alongside.
+@Suite(.serialized, .enabled(if: TestEnvironment.integration))
+struct IntegrationTests {}
+
+/// The work directory the pipeline logged, which cleanup must have removed.
+func workDirectory(in events: [InstallerEvent]) -> String? {
+    for case .log(let line) in events where line.hasPrefix("work directory: ") {
+        return String(line.dropFirst("work directory: ".count))
+    }
+    return nil
+}
+
 /// A directory under `$TMPDIR` removed at the end of the test.
 final class ScratchDirectory {
     let url: URL

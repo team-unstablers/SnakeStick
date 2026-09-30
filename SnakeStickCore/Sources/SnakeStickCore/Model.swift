@@ -85,7 +85,7 @@ public enum Phase: Int, Sendable, Codable, CaseIterable, Comparable {
     }
 }
 
-public struct Progress: Sendable, Codable, Equatable {
+public struct InstallerProgress: Sendable, Codable, Equatable {
     public var phase: Phase
     /// Overall progress, 0...1. Copying the files takes most of it.
     public var fraction: Double
@@ -103,7 +103,7 @@ public struct Progress: Sendable, Codable, Equatable {
 }
 
 public enum InstallerEvent: Sendable, Codable, Equatable {
-    case progress(Progress)
+    case progress(InstallerProgress)
     /// Phase changes, external commands with their exit status, cleanup results, errors.
     case log(String)
     case finished(InstallerResult)

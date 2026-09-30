@@ -105,8 +105,8 @@ struct InspectISOErrorTests {
 }
 
 /// §15 (a), (b): a fixture ISO made with `hdiutil makehybrid`, attached read-only.
-@Suite(.serialized, .enabled(if: TestEnvironment.integration))
-struct InspectISOIntegrationTests {
+extension IntegrationTests {
+@Suite struct InspectISO {
     @Test func fixtureISO() async throws {
         let before = try attachedImageCount()
         let scratch = try ScratchDirectory()
@@ -161,6 +161,7 @@ struct InspectISOIntegrationTests {
         let actual = try treeListing(mountPoint)
         #expect(actual == expected)
     }
+}
 }
 
 /// Relative path → (is directory, size, contents hash) for every item under `root`.
