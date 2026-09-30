@@ -8,7 +8,7 @@
 - 선행 조건 보고서 셋(`slopdisk/Prompts/20-raw-device.report.md`, `WIMLib/Prompts/10-swift-api.report.md`, `NTFS3G/Prompts/20-remove.report.md`)이 있음을 확인하고 시작했다.
 - 실제 USB 스틱(Sandisk 3.2Gen1, 61,964,550,144 B)에 `sudo snakestick make`로 실제 Windows 11 ISO(`Windows11_Client_x64_ko-kr_26300_9457.iso`, 8.74 GB)를 썼고, 검증까지 통과했다(16분 13초). 사용자가 그 스틱으로 **x64 실물 PC에서 Secure Boot를 켠 채 Windows 설치 프로그램 첫 화면까지 부팅**했다.
 - 실기에서 지시서의 전제 여섯 개가 어긋났다. U11(raw 슬라이스), FAT 배치 ensure의 자기모순, P6의 버전 원본, P10의 인증 흐름, 데몬의 TCC 제약(두 번), `Progress` 이름 충돌이다. 모두 멈추고 사용자에게 물어 정했다(아래 "플래너 결정과 다르게 한 것").
-- GUI → 헬퍼 경로로 쓰기가 6단계(복사)까지 진행되는 것은 확인했다. 끝까지 쓰는 것은 확인하지 못했다. 사용자가 앱을 다시 띄워 연결이 끊겼고, 데몬은 설계대로 작업을 취소했다.
+- GUI → 헬퍼 경로로 쓰기가 6단계(복사)까지 진행되는 것은 확인했다. 끝까지 쓰는 것은 확인하지 못했다. 복사 도중 연결이 끊긴 원인은 헬퍼 크래시였다(아래 "헬퍼 크래시"). 수정한 빌드로는 다시 써 보지 않았다.
 
 ## 확인한 것
 
@@ -52,6 +52,15 @@
    - `XPCListener(service:requirement:)` 리스너가 앱 세션을 받아 응답했다.
    - 권한 부여와 TCC 문제를 해결한 뒤(아래) 전체 디스크 접근을 앱에 주자 1~5단계를 지나 6단계(복사)까지 진행했다. 5단계 중 이전 FAT가 남은 disk7s2에 대한 자동 마운트를 가드가 거부했다(`mount guard: refused a mount of disk7s2`).
    - 그 뒤 앱이 다시 띄워지면서 연결이 끊겼고, 데몬은 작업을 취소하고 정리한 뒤 종료했다(`the app disconnected; cancelling its job`).
+
+### 헬퍼 크래시
+
+- 증상: GUI 쓰기의 6단계에서 "helper connection ended: Underlying connection interrupted".
+- `/Library/Logs/DiagnosticReports/SnakeStickHelper-2026-09-30-19*.ips` 7개가 모두 같은 스택이었다.
+  - `EXC_BREAKPOINT`, `closure #6` (main.swift) → `swift_task_isCurrentExecutorWithFlagsImpl` → `_swift_task_checkIsolatedSwift` → `dispatch_assert_queue` 실패.
+- 원인: 유휴 종료 타이머의 핸들러 클로저. Swift 6에서 `main.swift`의 최상위 코드는 MainActor 격리라 이 클로저도 MainActor로 추론된다. 그런데 `DispatchSource.makeTimerSource(queue: .global())`로 전역 큐에서 발화해서 런타임 격리 검사가 프로세스를 죽였다. 데몬은 뜬 지 60초마다 죽었다(예: 19:44:30 시작 → 19:45:30 크래시).
+- 수정: 타이머를 `.main` 큐에 건다(`dispatchMain()`이 메인 큐를 돌린다). 앱 빌드는 통과했다. 수정한 빌드로 GUI 쓰기를 다시 해 보지는 않았다.
+- 크래시한 데몬은 정리를 못 한다. ISO attach가 남아 다음 작업이 "could not be mounted"로 실패한 적이 있었다(19:40:50). 남은 attach는 떨어진 것을 확인했다. root 소유의 빈 작업 디렉터리 두 개가 `/tmp`에 남아 있다. 데몬 시작 시 남은 것을 정리하는 기능은 넣지 않았다. `sudo` CLI도 같은 `snakestick-0-` 접두어를 써서 구분할 수 없기 때문이다.
 
 ## 확인하지 못한 것 (`<unverified>`)
 
@@ -166,7 +175,8 @@
 | b8d4285 / ebbded5 | Mount the ISO in the app … / 그 revert |
 | 5528ecc | Ask for Full Disk Access when the helper lacks it |
 | 8e8afba | Update the README and CLAUDE.md for the implemented app, CLI and helper |
-| (이 보고서) | Add the stage 10 implementation report |
+| 5df1191 | Add the stage 10 implementation report |
+| (다음 커밋) | Run the helper's idle timer on the main queue (크래시 수정과 이 보고서 갱신) |
 
 `<closing>`의 7단위보다 많아졌다. 실기에서 나온 수정을 따로 커밋했기 때문이다. 모든 커밋은 경로를 지정해서 만들었고, Co-author 트레일러는 없다. 이 작업의 커밋이 건드린 최상위 경로는 `SnakeStickCore/`, `SnakeStick/`, `SnakeStick.xcworkspace/`, `README.md`, `CLAUDE.md`, `Prompts/`, `COPYING`이다(`COPYING`은 위 7).
 

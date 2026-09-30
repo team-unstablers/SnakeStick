@@ -33,7 +33,12 @@ do {
 }
 
 // Exit after five idle minutes; launchd starts the daemon again on the next connection.
-let idleTimer = DispatchSource.makeTimerSource(queue: .global())
+//
+// The handler must run on the main queue: top-level code in main.swift is main-actor isolated in
+// Swift 6, so the closure is too, and on any other queue the runtime's isolation check traps
+// (EXC_BREAKPOINT in _swift_task_checkIsolatedSwift). That killed the daemon a minute after every
+// start, in the middle of a write (2026-09-30). dispatchMain() below services the main queue.
+let idleTimer = DispatchSource.makeTimerSource(queue: .main)
 idleTimer.schedule(deadline: .now() + 60, repeating: 60)
 idleTimer.setEventHandler {
     if service.idleSeconds >= 300 {
