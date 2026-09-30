@@ -1,4 +1,6 @@
-// SPDX-License-Identifier: LGPL-3.0-or-later
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+import Foundation
 
 /// One image of a WIM file, as described by the WIM's XML metadata.
 ///
@@ -75,7 +77,22 @@ public enum WIMArchitecture: Sendable, Equatable {
     }
 }
 
-/// The compression format of the resources in a WIM file written by ``WIMFile/create(from:to:compression:imageName:properties:)``.
+/// One image for ``WIMFile/create(images:to:compression:)``: a host directory captured as the
+/// image's root, its `NAME`, and further XML properties.
+public struct WIMImageSource: Sendable {
+    public var directory: URL
+    public var name: String
+    /// Keys in the syntax of ``WIMFile/property(_:ofImage:)``, such as `WINDOWS/ARCH`.
+    public var properties: [String: String]
+
+    public init(directory: URL, name: String, properties: [String: String] = [:]) {
+        self.directory = directory
+        self.name = name
+        self.properties = properties
+    }
+}
+
+/// The compression format of the resources in a WIM file written by ``WIMFile/create(images:to:compression:)``.
 public enum WIMCompression: Sendable {
     case none
     case xpress

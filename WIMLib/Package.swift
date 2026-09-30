@@ -1,5 +1,5 @@
 // swift-tools-version: 6.4
-// SPDX-License-Identifier: LGPL-3.0-or-later
+// SPDX-License-Identifier: LGPL-2.1-or-later
 
 import PackageDescription
 

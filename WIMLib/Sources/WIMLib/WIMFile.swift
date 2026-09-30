@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LGPL-3.0-or-later
+// SPDX-License-Identifier: LGPL-2.1-or-later
 
 internal import CWIMLib
 import Foundation
@@ -124,11 +124,26 @@ public final class WIMFile {
         imageName: String,
         properties: [String: String] = [:]
     ) throws {
+        try create(
+            images: [WIMImageSource(directory: directory, name: imageName, properties: properties)],
+            to: path, compression: compression)
+    }
+
+    /// Writes a new WIM file at `path` holding one image per source, in order: the first
+    /// source becomes image 1.
+    ///
+    /// This is meant for tests and fixtures, such as a stand-in for a Windows `boot.wim`,
+    /// whose Windows Setup image is image 2. Image names must be unique, as wimlib requires
+    /// (`WIMLIB_ERR_IMAGE_NAME_COLLISION`). An existing file at `path` is replaced.
+    public static func create(
+        images: [WIMImageSource],
+        to path: String,
+        compression: WIMCompression = .lzx
+    ) throws {
         try WIMLibGlobal.initialize()
-        guard directory.isFileURL else {
-            throw WIMLibError.posix(operation: "create", path: directory.absoluteString, errno: EINVAL)
+        for image in images where !image.directory.isFileURL {
+            throw WIMLibError.posix(operation: "create", path: image.directory.absoluteString, errno: EINVAL)
         }
-        let source = fileSystemPath(directory)
         let type = switch compression {
         case .none: WIMLIB_COMPRESSION_TYPE_NONE
         case .xpress: WIMLIB_COMPRESSION_TYPE_XPRESS
@@ -142,16 +157,20 @@ public final class WIMFile {
         }
         defer { wimlib_free(wim) }
 
-        let status = try withCStrings([source, imageName]) { (strings) throws(WIMLibError) -> Int32 in
-            wimlib_add_image(wim, strings[0], strings[1], nil, 0)
-        }
-        try WIMLibGlobal.check(status)
-
-        for (name, value) in properties.sorted(by: { $0.key < $1.key }) {
-            let status = try withCStrings([name, value]) { (strings) throws(WIMLibError) -> Int32 in
-                wimlib_set_image_property(wim, 1, strings[0], strings[1])
+        for (offset, image) in images.enumerated() {
+            let source = fileSystemPath(image.directory)
+            let status = try withCStrings([source, image.name]) { (strings) throws(WIMLibError) -> Int32 in
+                wimlib_add_image(wim, strings[0], strings[1], nil, 0)
             }
             try WIMLibGlobal.check(status)
+
+            let index = Int32(offset + 1)
+            for (name, value) in image.properties.sorted(by: { $0.key < $1.key }) {
+                let status = try withCStrings([name, value]) { (strings) throws(WIMLibError) -> Int32 in
+                    wimlib_set_image_property(wim, index, strings[0], strings[1])
+                }
+                try WIMLibGlobal.check(status)
+            }
         }
 
         let writeStatus = try withCString(path) { (cPath) throws(WIMLibError) -> Int32 in
