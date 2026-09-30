@@ -1,6 +1,10 @@
-# SnakeStick
+# SnakeStick — design notes
 
 A Windows 10/11 USB installer creator for macOS.
+
+This document is for building SnakeStick from source and working on it: the command-line tool, how
+the pipeline works, the design decisions and the known limitations. What the app does and how to use
+it is in the [README](../README.md).
 
 # STATUS
 
