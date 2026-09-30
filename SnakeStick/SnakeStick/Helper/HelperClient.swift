@@ -111,9 +111,10 @@ final class HelperClient {
         }
     }
 
-    /// Starts a job. `.accepted` or `.rejected(reason:)`.
-    func start(_ request: InstallerRequest, authorization: AdminAuthorization) async throws -> HelperReply {
-        let reply = try await send(.start(request, authorization: authorization.externalForm))
+    /// Starts a job. `.accepted` or `.rejected(reason:)`. The daemon shows the administrator
+    /// dialog with `prompt` before it answers.
+    func start(_ request: InstallerRequest, authorization: AdminAuthorization, prompt: String) async throws -> HelperReply {
+        let reply = try await send(.start(request, authorization: authorization.externalForm, prompt: prompt))
         // `authorization` stays alive until the daemon has answered (C25).
         withExtendedLifetime(authorization) {}
         return reply

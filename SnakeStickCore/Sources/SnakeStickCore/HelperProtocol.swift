@@ -15,14 +15,21 @@ public enum HelperConstants {
     /// The Authorization Services right checked for every write.
     public static let authorizationRight = "pl.unstabler.aislop.SnakeStick.write"
     /// Bumped whenever ``HelperRequest`` or ``HelperReply`` change shape.
-    public static let protocolVersion = 1
+    public static let protocolVersion = 2
+    /// The `rejected` reason when the user dismissed the authentication dialog.
+    public static let authorizationCancelled = "authorization cancelled"
 }
 
 /// App → daemon. The daemon runs one job at a time (`code#xpc`).
 public enum HelperRequest: Sendable, Codable, Equatable {
     /// Starts the pipeline for a `.device` target. `authorization` is an
-    /// `AuthorizationExternalForm` (32 bytes) for ``HelperConstants/authorizationRight``.
-    case start(InstallerRequest, authorization: Data)
+    /// `AuthorizationExternalForm` (32 bytes) of an authorization the app created without asking
+    /// for anything; the daemon acquires ``HelperConstants/authorizationRight`` through it, which
+    /// shows the authentication dialog in the user's session with `prompt` (localized by the app).
+    ///
+    /// Not as P10 planned: the app asking and the daemon only checking does not work, because
+    /// `authenticate-admin` credentials have a timeout of 0 and cannot be reused (2026-09-30).
+    case start(InstallerRequest, authorization: Data, prompt: String)
     case cancel
     case version
 }

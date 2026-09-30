@@ -59,8 +59,8 @@ final class HelperService: @unchecked Sendable {
             running?.cancel()
             logger.log("cancel requested; \(running == nil ? "no job" : "cancelling the job", privacy: .public)")
             return .accepted
-        case .start(let installerRequest, let authorization):
-            return start(installerRequest, authorization: authorization, session: session)
+        case .start(let installerRequest, let authorization, let prompt):
+            return start(installerRequest, authorization: authorization, prompt: prompt, session: session)
         }
     }
 
@@ -91,10 +91,9 @@ final class HelperService: @unchecked Sendable {
         }
     }
 
-    private func start(_ request: InstallerRequest, authorization: Data, session: XPCSession) -> HelperReply {
-        guard HelperAuthorization.verify(authorization) else {
-            logger.error("start rejected: authorization failed")
-            return .rejected(reason: "The administrator authorization is not valid.")
+    private func start(_ request: InstallerRequest, authorization: Data, prompt: String, session: XPCSession) -> HelperReply {
+        if lock.withLock({ job != nil }) {
+            return .rejected(reason: "Another write is in progress.")
         }
         // The app is not trusted with the target (C21): only whole disks, checked against P8 here.
         guard case .device(let bsdName) = request.target else {
@@ -112,6 +111,18 @@ final class HelperService: @unchecked Sendable {
             }
         } catch {
             return .rejected(reason: "The disks cannot be listed: \(error)")
+        }
+
+        // Every write asks for an administrator; the dialog appears in the app's session.
+        switch HelperAuthorization.acquire(authorization, prompt: prompt) {
+        case .granted:
+            break
+        case .cancelled:
+            logger.log("start rejected: the user cancelled the authentication")
+            return .rejected(reason: HelperConstants.authorizationCancelled)
+        case .denied(let status):
+            logger.error("start rejected: authorization failed (\(status))")
+            return .rejected(reason: "The administrator authorization failed (\(status)).")
         }
 
         return lock.withLock {

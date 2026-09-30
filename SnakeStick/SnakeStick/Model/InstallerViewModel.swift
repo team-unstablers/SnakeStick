@@ -192,20 +192,27 @@ final class InstallerViewModel {
         let prompt = String(localized: "SnakeStick wants to erase “\(disk.model)” (\(disk.bsdName)) and make it a Windows installation disk.")
         let authorization: AdminAuthorization
         do {
-            authorization = try await Task.detached { try AdminAuthorization.request(prompt: prompt) }.value
-        } catch AdminAuthorization.Failure.cancelled {
-            stage = .idle
-            return
+            authorization = try AdminAuthorization.create()
         } catch {
             fail(helperError(String(localized: "The helper could not be reached: \(String(describing: error))")))
             return
         }
 
-        stage = .writing(InstallerProgress(phase: .openISO, fraction: 0))
+        // The daemon shows the administrator dialog before it answers; the stage stays at
+        // "Waiting for authorization…" until then.
         do {
-            let reply = try await helper.start(request, authorization: authorization)
-            if case .rejected(let reason) = reply {
+            let reply = try await helper.start(request, authorization: authorization, prompt: prompt)
+            switch reply {
+            case .accepted:
+                if case .starting = stage {
+                    stage = .writing(InstallerProgress(phase: .openISO, fraction: 0))
+                }
+            case .rejected(let reason) where reason == HelperConstants.authorizationCancelled:
+                stage = .idle
+            case .rejected(let reason):
                 fail(helperError(String(localized: "The helper refused the write: \(reason)")))
+            default:
+                fail(helperError(String(localized: "The helper refused the write: \(String(describing: reply))")))
             }
         } catch {
             fail(helperError(String(localized: "The helper could not be reached: \(String(describing: error))")))

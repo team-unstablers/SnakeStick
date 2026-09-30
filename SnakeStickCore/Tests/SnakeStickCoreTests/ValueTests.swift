@@ -81,7 +81,7 @@ struct ModelTests {
 
     @Test func helperMessagesRoundTripThroughJSON() throws {
         let requests: [HelperRequest] = [
-            .start(.init(isoPath: "/tmp/w.iso", target: .device(bsdName: "disk4")), authorization: Data(repeating: 7, count: 32)),
+            .start(.init(isoPath: "/tmp/w.iso", target: .device(bsdName: "disk4")), authorization: Data(repeating: 7, count: 32), prompt: "Erase?"),
             .cancel,
             .version,
         ]
