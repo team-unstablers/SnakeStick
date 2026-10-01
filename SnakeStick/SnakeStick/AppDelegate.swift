@@ -42,9 +42,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let closeGuard, window.delegate === closeGuard {
             return
         }
-        closeGuard = WindowCloseGuard(window: window) { [weak self] in
+        closeGuard = WindowCloseGuard(window: window, allowsClose: { [weak self] in
             self?.model.allowsExit(.closeWindow) ?? true
-        }
+        }, didClose: {
+            // The app is its main window; the log and About windows do not keep it running.
+            // After the close has finished; by then no job runs (allowsClose let it through).
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        })
     }
 }
 
@@ -57,12 +61,14 @@ final class WindowCloseGuard: NSObject, NSWindowDelegate {
     /// them on the main actor.
     nonisolated(unsafe) private weak var original: (any NSWindowDelegate)?
     private let allowsClose: () -> Bool
+    private let didClose: () -> Void
 
     /// `window.delegate` is weak: the caller keeps the guard.
-    init(window: NSWindow, allowsClose: @escaping () -> Bool) {
+    init(window: NSWindow, allowsClose: @escaping () -> Bool, didClose: @escaping () -> Void) {
         self.window = window
         self.original = window.delegate
         self.allowsClose = allowsClose
+        self.didClose = didClose
         super.init()
         window.delegate = self
     }
@@ -72,6 +78,11 @@ final class WindowCloseGuard: NSObject, NSWindowDelegate {
             return false
         }
         return original?.windowShouldClose?(sender) ?? true
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        original?.windowWillClose?(notification)
+        didClose()
     }
 
     override nonisolated func responds(to aSelector: Selector!) -> Bool {
