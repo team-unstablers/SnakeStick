@@ -4,7 +4,18 @@ SlopDisk - a lightweight GPT partition table management module for Swift, writte
 
 # WARNING: NOT FOR PRODUCTION USE
 
-- **Do not point this at a real disk.** You may end up royally f\*cked. (Seriously.)
+SlopDisk has been verified for exactly one job: the one [SnakeStick](../README.md) gives it when it makes a Windows installation USB stick. That job wipes a whole removable stick (512-byte sectors) and writes a fresh GPT holding two partitions (Microsoft basic data and an EFI system partition), then reads it back. It has been done on real USB sticks, and the test suite covers the rest on in-memory devices, image files and `hdiutil`-attached images.
+
+Anything beyond that has **not** been verified on real hardware, including:
+
+- editing the partition table of a disk that holds data you want to keep (adding, resizing or deleting partitions next to existing ones);
+- `repair()` on a damaged table on a real device;
+- 4096-byte-sector (4Kn) devices, disks larger than 2 TiB, internal disks, and anything on Linux other than in-memory and file backends.
+
+If you use it for any of these, be very careful: back up first, try it on a disk image before the real device, and assume a mistake will destroy everything on the disk.
+
+Whatever you use it for:
+
 - The raw device backend (`SDRawDevice`) exists only so that disposable media (e.g. a USB stick you are about to wipe) can be written. It does **not** check which disk you hand it: not whether it is your boot disk, not whether it is internal, not whether anything on it is mounted. Choosing the right device, and unmounting it, is entirely your problem.
 - Every read-write open of a device has to say `acknowledging: .dataLossRisk`. Grep for it before you ship.
 
