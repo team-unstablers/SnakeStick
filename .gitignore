@@ -8,6 +8,8 @@ build/
 
 # Swift Package Manager
 .build/
+# Xcode writes schemes and workspace settings here when it opens a package.
+.swiftpm/
 
 # Release builds (distutil/build_dmg.sh)
 /dist/
