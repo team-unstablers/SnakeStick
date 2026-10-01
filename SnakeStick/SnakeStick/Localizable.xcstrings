@@ -8,6 +8,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Disque externe %@" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@ 外部ディスク" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "%@ 외장 디스크" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Disco externo %@" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@ 外置磁盘" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "%@ 外接磁碟" } }
       }
@@ -19,6 +20,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "%@ · %@ · %@" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@ · %@ · %@" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "%@ · %@ · %@" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "%@ · %@ · %@" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@ · %@ · %@" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "%@ · %@ · %@" } }
       }
@@ -30,6 +32,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@)" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@)" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@)" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@)" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@)" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@)" } }
       }
@@ -41,6 +44,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@) · Espace insuffisant" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@) · 容量不足" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@) · 공간 부족" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@) · Espaço insuficiente" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@) · 空间不足" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ (%@) · 空間不足" } }
       }
@@ -83,6 +87,15 @@
         },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "%lld 個のパーティション" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "파티션 %lld개" } },
+        "pt-BR" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld partição" } },
+              "many" : { "stringUnit" : { "state" : "translated", "value" : "%lld partições" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld partições" } }
+            }
+          }
+        },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%lld 个分区" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "%lld 個分割區" } }
       }
@@ -94,6 +107,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Temps restant : environ %lld min" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "残り約 %lld 分" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "약 %lld분 남음" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Tempo restante: cerca de %lld min" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "约剩 %lld 分钟" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "約剩 %lld 分鐘" } }
       }
@@ -105,6 +119,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "À propos de SnakeStick" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick について" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick에 관하여" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Sobre o SnakeStick" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关于 SnakeStick" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "關於 SnakeStick" } }
       }
@@ -116,6 +131,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Texte complet de la licence…" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ライセンス全文…" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "라이선스 전문…" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Texto Completo da Licença…" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "许可证全文…" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "授權條款全文…" } }
       }
@@ -127,6 +143,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2" } }
       }
@@ -138,6 +155,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2 ou ultérieure" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2 以降" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2 이상" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2 ou posterior" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2 或更高版本" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v2 或以上版本" } }
       }
@@ -149,6 +167,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3" } }
       }
@@ -160,6 +179,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3 ou ultérieure" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3 以降" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3 이상" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3 ou posterior" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3 或更高版本" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "GNU GPL v3 或以上版本" } }
       }
@@ -171,6 +191,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Son code source a servi de référence" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ソースコードを参考にしました" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "소스 코드를 참고했습니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Seu código-fonte foi usado como referência" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "参考了其源代码" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "參考了其原始碼" } }
       }
@@ -182,6 +203,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Code source" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ソースコード" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "소스 코드" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Código-Fonte" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "源代码" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "原始碼" } }
       }
@@ -193,6 +215,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ce logiciel est un logiciel open source distribué sous licence GPLv3.\nCe logiciel est fourni sans aucune garantie." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "このソフトウェアは GPLv3 でライセンスされたオープンソースソフトウェアです。\nこのソフトウェアにはいかなる保証もありません。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 소프트웨어는 GPLv3로 라이선스된 오픈 소스 소프트웨어입니다.\n이 소프트웨어는 어떠한 보증도 제공하지 않습니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Este software é um software de código aberto licenciado sob a GPLv3.\nEste software é fornecido sem nenhuma garantia." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "本软件是以 GPLv3 授权的开源软件。\n本软件不提供任何担保。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "本軟體是以 GPLv3 授權的開放原始碼軟體。\n本軟體不提供任何擔保。" } }
       }
@@ -204,6 +227,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ce logiciel n’aurait pas pu exister sans les logiciels libres ci-dessous.\nMerci d’avoir créé de si bons logiciels !" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "このソフトウェアは以下のフリーソフトウェアのおかげで実現しました。\n素晴らしいソフトウェアを作ってくださり、ありがとうございます！" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 소프트웨어는 아래 자유 소프트웨어 덕분에 만들어질 수 있었습니다.\n멋진 소프트웨어를 만들어 주셔서 감사합니다!" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Este software só foi possível graças aos softwares livres abaixo.\nObrigado por criarem softwares tão bons!" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "本软件的诞生离不开以下自由软件。\n感谢你们创造了如此出色的软件！" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "本軟體得以誕生，要歸功於以下自由軟體。\n感謝你們打造出如此出色的軟體！" } }
       }
@@ -215,6 +239,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ce logiciel a été écrit par un agent de programmation basé sur un LLM, sous supervision humaine." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "このソフトウェアは、人間の監督のもとで LLM ベースのコーディングエージェントが作成しました。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 소프트웨어는 사람의 감독 하에 LLM 기반 코딩 에이전트가 작성했습니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Este software foi escrito por um agente de programação baseado em LLM, sob supervisão humana." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "本软件由基于 LLM 的编程代理在人类监督下编写。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "本軟體由以 LLM 為基礎的程式設計代理程式在人類監督下撰寫。" } }
       }
@@ -226,6 +251,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Version %@ (%@)" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "バージョン %@ (%@)" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "버전 %@ (%@)" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Versão %@ (%@)" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "版本 %@ (%@)" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "版本 %@ (%@)" } }
       }
@@ -237,6 +263,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Après l’écriture, relit le volume NTFS de la clé et le compare à l’arborescence de fichiers de l’ISO." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込み後に USB メモリの NTFS ボリュームを読み戻し、ISO のファイルツリーと比較します。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "기록을 마친 뒤 스틱의 NTFS 볼륨을 다시 읽어 ISO의 파일 트리와 비교합니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Após a gravação, lê novamente o volume NTFS do pendrive e o compara com a árvore de arquivos da ISO." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "写入完成后，重新读取 U 盘上的 NTFS 宗卷，并与 ISO 的文件树进行比较。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "寫入完成後，重新讀取隨身碟上的 NTFS 卷宗，並與 ISO 的檔案樹狀結構進行比對。" } }
       }
@@ -248,6 +275,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Toutes les partitions et données de %@(%@) seront effacées et il deviendra un disque d’installation de Windows. Cette opération est irréversible. Si vous continuez, le mot de passe d’un administrateur vous sera demandé une fois." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@(%@) のすべてのパーティションとデータが消去され、Windows インストールディスクに作り直されます。この操作は取り消せません。続けると、管理者パスワードを 1 回入力するよう求められます。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "%@(%@)의 모든 파티션과 데이터가 지워지고 Windows 설치 디스크로 다시 만들어집니다. 되돌릴 수 없습니다. 계속하면 관리자 암호를 한 번 묻습니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Todas as partições e dados de %@(%@) serão apagados, e ele será transformado em um disco de instalação do Windows. Esta ação não pode ser desfeita. Se você continuar, a senha de um administrador será solicitada uma vez." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@(%@) 上的所有分区和数据都将被抹掉，并被制作成 Windows 安装盘。此操作无法撤销。如果继续，系统会要求你输入一次管理员密码。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "%@(%@) 上的所有分割區和資料都會被清除，並製作成 Windows 安裝磁碟。此動作無法還原。若繼續，系統會要求你輸入一次管理者密碼。" } }
       }
@@ -259,6 +287,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Autorisez l’accès complet au disque pour SnakeStick" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick にフルディスクアクセスを許可してください" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick에 전체 디스크 접근 권한을 허용하세요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Permita o Acesso Total ao Disco para o SnakeStick" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请为 SnakeStick 允许完全磁盘访问权限" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "請允許 SnakeStick 完全取用磁碟" } }
       }
@@ -270,6 +299,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Tant que SnakeStick n’a pas l’accès complet au disque, macOS empêche l’outil d’assistance qui écrit sur le disque d’accéder aux disques amovibles et à vos dossiers. Ajoutez SnakeStick dans Réglages Système > Confidentialité et sécurité > Accès complet au disque, puis réessayez." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick にフルディスクアクセスがないと、ディスクに書き込むヘルパーは macOS によってリムーバブルディスクやユーザのフォルダへのアクセスを禁止されます。システム設定 > プライバシーとセキュリティ > フルディスクアクセスに SnakeStick を追加してから、もう一度お試しください。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick에 전체 디스크 접근 권한이 없으면 macOS가 디스크를 쓰는 도우미의 이동식 디스크와 사용자 폴더 접근을 막습니다. 시스템 설정 > 개인정보 보호 및 보안 > 전체 디스크 접근 권한에 SnakeStick을 추가한 뒤 다시 시도하세요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Enquanto o SnakeStick não tiver Acesso Total ao Disco, o macOS impede que a ferramenta auxiliar que grava o disco acesse discos removíveis e as suas pastas. Adicione o SnakeStick em Ajustes do Sistema > Privacidade e Segurança > Acesso Total ao Disco e tente novamente." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在 SnakeStick 获得完全磁盘访问权限之前，macOS 会阻止写入磁盘的辅助程序访问可移除磁盘和你的文件夹。请在系统设置 > 隐私与安全性 > 完全磁盘访问权限中添加 SnakeStick，然后重试。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "在 SnakeStick 取得完全取用磁碟權限之前，macOS 會阻止寫入磁碟的輔助程式取用可移除式磁碟和你的資料夾。請在系統設定 > 隱私權與安全性 > 完全取用磁碟中加入 SnakeStick，然後再試一次。" } }
       }
@@ -281,6 +311,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Autorisez l’outil d’assistance de SnakeStick" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick のヘルパーを許可してください" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick 도우미를 허용하세요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Permita a ferramenta auxiliar do SnakeStick" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请允许 SnakeStick 辅助程序" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "請允許 SnakeStick 輔助程式" } }
       }
@@ -292,6 +323,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Une erreur d’entrée/sortie s’est produite (%@). La clé a peut-être été retirée ou est endommagée." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "入出力エラーが発生しました (%@)。USB メモリが取り外されたか、破損している可能性があります。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "입출력 오류가 났습니다 (%@). 스틱이 분리되었거나 손상되었을 수 있습니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Ocorreu um erro de entrada/saída (%@). O pendrive pode ter sido removido ou estar danificado." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "发生输入/输出错误 (%@)。U 盘可能已被移除或已损坏。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "發生輸入/輸出錯誤 (%@)。隨身碟可能已被移除或已損壞。" } }
       }
@@ -303,6 +335,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Une erreur d’entrée/sortie s’est produite lors de l’écriture de %@ (%@). La clé a peut-être été retirée ou est endommagée." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@ の書き込み中に入出力エラーが発生しました (%@)。USB メモリが取り外されたか、破損している可能性があります。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "%@을 쓰는 중 입출력 오류가 났습니다 (%@). 스틱이 분리되었거나 손상되었을 수 있습니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Ocorreu um erro de entrada/saída ao gravar %@ (%@). O pendrive pode ter sido removido ou estar danificado." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "写入 %@ 时发生输入/输出错误 (%@)。U 盘可能已被移除或已损坏。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "寫入 %@ 時發生輸入/輸出錯誤 (%@)。隨身碟可能已被移除或已損壞。" } }
       }
@@ -314,6 +347,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Une erreur inattendue s’est produite. Consultez le journal pour en savoir plus." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "予期しないエラーが発生しました。詳しくはログを参照してください。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "예상하지 못한 오류가 났습니다. 자세한 내용은 로그를 보세요." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Ocorreu um erro inesperado. Consulte o registro para obter detalhes." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "发生意外错误。有关详细信息，请查看日志。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "發生未預期的錯誤。如需詳細資訊，請查看記錄。" } }
       }
@@ -325,6 +359,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Disponible après avoir choisi une ISO de Windows 11 25H2 ou ultérieure." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "Windows 11 25H2 以降の ISO を選ぶと使用できます。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "Windows 11 25H2 이상 ISO를 고르면 쓸 수 있습니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Disponível quando você escolher uma ISO do Windows 11 25H2 ou posterior." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择 Windows 11 25H2 或更高版本的 ISO 后可用。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "選擇 Windows 11 25H2 或以上版本的 ISO 後即可使用。" } }
       }
@@ -336,6 +371,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Partition de démarrage" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ブートパーティション" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "부트 파티션" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Partição de inicialização" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "启动分区" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "開機分割區" } }
       }
@@ -347,6 +383,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Annuler" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "キャンセル" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "취소" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Cancelar" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "取消" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "取消" } }
       }
@@ -358,6 +395,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Vérification des partitions" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "パーティションの確認" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "파티션 확인" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Verificar partições" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "检查分区" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "檢查分割區" } }
       }
@@ -369,6 +407,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Vérification des partitions" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "パーティションを確認しています" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "파티션을 확인하고 있습니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Verificando as partições" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在检查分区" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在檢查分割區" } }
       }
@@ -380,6 +419,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Choisissez un fichier ISO" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ISO ファイルを選択してください" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO 파일을 선택하세요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Escolha um arquivo ISO" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请选择 ISO 文件" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "請選擇 ISO 檔案" } }
       }
@@ -391,6 +431,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Choisissez un fichier ISO et un disque de destination" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ISO ファイルと書き込み先ディスクを選択してください" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO 파일과 대상 디스크를 선택하세요" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Escolha um arquivo ISO e um disco de destino" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请选择 ISO 文件和目标磁盘" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "請選擇 ISO 檔案和目標磁碟" } }
       }
@@ -402,6 +443,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Choisir…" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "選択…" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "선택…" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Escolher…" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选取…" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "選擇…" } }
       }
@@ -413,6 +455,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Copie des fichiers" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ファイルのコピー" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "파일 복사" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Copiar arquivos" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拷贝文件" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "拷貝檔案" } }
       }
@@ -424,6 +467,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Copie des fichiers" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ファイルをコピーしています" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "파일을 복사하고 있습니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Copiando arquivos" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在拷贝文件" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在拷貝檔案" } }
       }
@@ -435,6 +479,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "OK" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "完了" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "완료" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "OK" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "完成" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "完成" } }
       }
@@ -446,6 +491,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Éjecter" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "取り出す" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "추출" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Ejetar" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "推出" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "退出" } }
       }
@@ -457,6 +503,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Effacer et écrire" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "消去して書き込む" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "지우고 쓰기" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Apagar e Gravar" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "抹掉并写入" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "清除並寫入" } }
       }
@@ -468,6 +515,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Effacer « %@ » ?" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "「%@」を消去しますか？" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "“%@”을 지울까요?" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Apagar “%@”?" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "要抹掉“%@”吗？" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "要清除「%@」嗎？" } }
       }
@@ -479,6 +527,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Disques externes" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "外部ディスク" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "외장 디스크" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Discos Externos" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "外置磁盘" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "外接磁碟" } }
       }
@@ -490,6 +539,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Échec à l’étape %lld/8 : %@" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ステップ %lld/8 で失敗しました: %@" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "단계 %lld/8에서 실패했습니다: %@" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Falha na etapa %lld/8: %@" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在第 %lld/8 步失败：%@" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "在第 %lld/8 步失敗：%@" } }
       }
@@ -501,6 +551,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Terminé" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "完了しました" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "완료했습니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Concluído" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已完成" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已完成" } }
       }
@@ -512,6 +563,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Terminé — les données écrites correspondent à l’ISO" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "完了しました — 書き込んだ内容は ISO と一致しています" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "완료했습니다 — 기록한 내용이 ISO와 일치합니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Concluído — os dados gravados correspondem à ISO" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已完成 — 写入的数据与 ISO 一致" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已完成 — 寫入的資料與 ISO 相符" } }
       }
@@ -523,6 +575,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Formatage de la partition NTFS" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "NTFS パーティションをフォーマットしています" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "NTFS 파티션을 포맷하고 있습니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Formatando a partição NTFS" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在格式化 NTFS 分区" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在格式化 NTFS 分割區" } }
       }
@@ -534,6 +587,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Si vous arrêtez maintenant, « %@ » ne pourra plus démarrer. Pour l’utiliser, vous devrez tout recommencer." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "いま中止すると、「%@」は起動できない状態のまま残ります。使用するには最初からやり直す必要があります。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "지금 중단하면 “%@”은 부팅할 수 없는 상태로 남습니다. 다시 쓰려면 처음부터 시작해야 합니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Se você parar agora, “%@” ficará impossibilitado de inicializar. Para usá-lo, será preciso começar de novo." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "如果现在停止，“%@”将无法启动。要使用它，必须从头重新开始。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "若現在停止，「%@」將無法開機。若要使用，必須從頭開始。" } }
       }
@@ -545,6 +599,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Les disques internes et le disque de démarrage ne sont pas affichés" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "内蔵ディスクと起動ディスクは表示されません" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "내장 디스크와 시동 디스크는 표시하지 않습니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Discos internos e o disco de inicialização não são mostrados" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "不显示内置磁盘和启动磁盘" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "不會顯示內建磁碟和啟動磁碟" } }
       }
@@ -556,6 +611,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Continuer l’écriture" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込みを続ける" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "계속 쓰기" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Continuar Gravando" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "继续写入" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "繼續寫入" } }
       }
@@ -567,6 +623,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Journal" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ログ" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "로그" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Registro" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "日志" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "記錄" } }
       }
@@ -578,6 +635,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Formatage NTFS" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "NTFS フォーマット" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "NTFS 포맷" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Formatação NTFS" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "NTFS 格式化" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "NTFS 格式化" } }
       }
@@ -589,6 +647,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Nécessaire pour démarrer avec Secure Boot activé sur les PC qui ont révoqué le certificat de 2011. Uniquement pour les ISO de Windows 11 25H2 ou ultérieure." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "2011 年の証明書を失効させた PC で、Secure Boot を有効にしたまま起動するために必要です。Windows 11 25H2 以降の ISO でのみ使用できます。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "2011 인증서를 폐기한 PC에서 Secure Boot를 켠 채로 부팅할 때 필요합니다. Windows 11 25H2 이상 ISO에서만 쓸 수 있습니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Necessário para inicializar com o Secure Boot ativado em PCs que revogaram o certificado de 2011. Somente para ISOs do Windows 11 25H2 ou posterior." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在已吊销 2011 证书的 PC 上开启 Secure Boot 启动时需要此项。仅适用于 Windows 11 25H2 或更高版本的 ISO。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "在已撤銷 2011 憑證的 PC 上開啟 Secure Boot 開機時需要此項目。僅適用於 Windows 11 25H2 或以上版本的 ISO。" } }
       }
@@ -600,6 +659,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Requis : %@ / %@" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "必要容量 %@ / %@" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "필요 %@ / %@" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Requer %@ / %@" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "需要 %@ / %@" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "需要 %@ / %@" } }
       }
@@ -611,6 +671,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucun journal pour l’instant." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "まだログはありません。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "아직 로그가 없습니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Ainda não há registro." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂无日志。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "尚無記錄。" } }
       }
@@ -622,6 +683,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Seuls les disques externes et amovibles sont affichés" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "外部ディスクとリムーバブルディスクのみ表示されます" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "외장·이동식 디스크만 표시됩니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Somente discos externos e removíveis são mostrados" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "仅显示外置磁盘和可移除磁盘" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "只會顯示外接磁碟和可移除式磁碟" } }
       }
@@ -633,6 +695,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ouvrir une ISO" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ISO を開く" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO 열기" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Abrir ISO" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开 ISO" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "打開 ISO" } }
       }
@@ -644,6 +707,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ouvrir Réglages Système" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "システム設定を開く" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "시스템 설정 열기" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Abrir Ajustes do Sistema" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开系统设置" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "打開系統設定" } }
       }
@@ -655,6 +719,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ouverture de l’ISO" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ISO を開いています" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO를 열고 있습니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Abrindo a ISO" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在打开 ISO" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在打開 ISO" } }
       }
@@ -666,6 +731,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Options" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "オプション" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "옵션" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Opções" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选项" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "選項" } }
       }
@@ -677,6 +743,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Table de partitions" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "パーティションテーブル" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "파티션 테이블" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Tabela de partições" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "分区表" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "分割區表" } }
       }
@@ -688,6 +755,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Préparation de la destination" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込み先の準備" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "대상 준비" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Preparar destino" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "准备目标" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "準備目標" } }
       }
@@ -699,6 +767,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Préparation de la partition de démarrage UEFI:NTFS" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "UEFI:NTFS ブートパーティションを準備しています" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "UEFI:NTFS 부트 파티션을 준비하고 있습니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Preparando a partição de inicialização UEFI:NTFS" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在准备 UEFI:NTFS 启动分区" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在準備 UEFI:NTFS 開機分割區" } }
       }
@@ -710,6 +779,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Préparation du disque de destination" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込み先ディスクを準備しています" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "대상 디스크를 준비하고 있습니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Preparando o disco de destino" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在准备目标磁盘" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在準備目標磁碟" } }
       }
@@ -721,6 +791,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Lecture de l’ISO…" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ISO を読み込んでいます…" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO를 읽고 있습니다…" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Lendo a ISO…" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在读取 ISO…" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在讀取 ISO…" } }
       }
@@ -732,6 +803,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Prêt pour l’écriture" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込みの準備ができました" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "쓰기 준비가 되었습니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Pronto para gravar" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已准备好写入" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已準備好寫入" } }
       }
@@ -743,6 +815,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Sélectionnez un disque" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ディスクを選択" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "디스크 선택" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Selecione um Disco" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择磁盘" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "選擇磁碟" } }
       }
@@ -754,6 +827,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Afficher le journal…" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ログを表示…" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "로그 보기…" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Mostrar Registro…" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "显示日志…" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "顯示記錄…" } }
       }
@@ -768,6 +842,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick veut effacer « %@ » (%@) pour en faire un disque d’installation de Windows." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick が「%@」(%@) を消去して Windows インストールディスクにしようとしています。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick이 “%@”(%@)을 지우고 Windows 설치 디스크로 만들려고 합니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "O SnakeStick quer apagar “%@” (%@) e transformá-lo em um disco de instalação do Windows." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick 想要抹掉“%@”(%@)并将其制作成 Windows 安装盘。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick 想要清除「%@」(%@) 並將其製作成 Windows 安裝磁碟。" } }
       }
@@ -784,6 +859,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "ISO source" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ソース ISO" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "원본 ISO" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "ISO de Origem" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "源 ISO" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "來源 ISO" } }
       }
@@ -795,6 +871,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Lancer l’écriture" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込み開始" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "쓰기 시작" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Iniciar Gravação" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "开始写入" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "開始寫入" } }
       }
@@ -806,6 +883,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Étape %lld/8 : %@" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ステップ %lld/8: %@" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "단계 %lld/8: %@" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Etapa %lld/8: %@" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "第 %lld/8 步：%@" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "第 %lld/8 步：%@" } }
       }
@@ -817,6 +895,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Étape %lld/8 : %@ — %@" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ステップ %lld/8: %@ — %@" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "단계 %lld/8: %@ — %@" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Etapa %lld/8: %@ — %@" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "第 %lld/8 步：%@ — %@" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "第 %lld/8 步：%@ — %@" } }
       }
@@ -828,6 +907,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Arrêter" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "中止" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "중단" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Parar" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "停止" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "停止" } }
       }
@@ -839,6 +919,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Arrêter l’écriture ?" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込みを中止しますか？" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "쓰기를 중단할까요?" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Parar a gravação?" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "要停止写入吗？" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "要停止寫入嗎？" } }
       }
@@ -850,6 +931,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Arrêté — la clé ne peut pas démarrer" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "中止しました — USB メモリは起動できない状態です" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "중단했습니다 — 스틱은 부팅할 수 없는 상태입니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Interrompido — o pendrive não pode inicializar" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已停止 — U 盘无法启动" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已停止 — 隨身碟無法開機" } }
       }
@@ -861,6 +943,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Disque de destination" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込み先ディスク" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "대상 디스크" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Disco de Destino" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "目标磁盘" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "目標磁碟" } }
       }
@@ -872,6 +955,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Impossible d’utiliser cette ISO : ce n’est pas une ISO d’installation de Windows, ou il lui manque ce dont les options choisies ont besoin." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "この ISO は使用できません。Windows インストール ISO ではないか、選択したオプションに必要なファイルがありません。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 ISO를 쓸 수 없습니다. Windows 설치 ISO가 아니거나 고른 옵션에 필요한 파일이 없습니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Não é possível usar a ISO: ela não é uma ISO de instalação do Windows ou não contém o que as opções escolhidas exigem." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法使用此 ISO：它不是 Windows 安装 ISO，或缺少所选选项需要的文件。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "無法使用此 ISO：它不是 Windows 安裝 ISO，或缺少所選選項需要的檔案。" } }
       }
@@ -883,6 +967,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Impossible de lire le fichier ISO." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ISO ファイルを読み込めません。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO 파일을 읽을 수 없습니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Não é possível ler o arquivo ISO." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法读取 ISO 文件。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "無法讀取 ISO 檔案。" } }
       }
@@ -894,6 +979,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "La connexion à l’outil d’assistance a été perdue." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ヘルパーとの接続が切断されました。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "도우미와의 연결이 끊어졌습니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "A conexão com a ferramenta auxiliar foi perdida." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "与辅助程序的连接已断开。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "與輔助程式的連線已中斷。" } }
       }
@@ -905,6 +991,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Impossible de joindre l’outil d’assistance : %@" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ヘルパーに接続できません: %@" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "도우미에 연결할 수 없습니다: %@" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Não foi possível acessar a ferramenta auxiliar: %@" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法连接辅助程序：%@" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "無法連線至輔助程式：%@" } }
       }
@@ -916,6 +1003,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "L’outil d’assistance a refusé l’écriture : %@" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ヘルパーが書き込みを拒否しました: %@" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "도우미가 쓰기를 거부했습니다: %@" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "A ferramenta auxiliar recusou a gravação: %@" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "辅助程序拒绝了写入：%@" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "輔助程式拒絕了寫入：%@" } }
       }
@@ -927,6 +1015,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "La clé ne peut plus démarrer." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "USB メモリは現在、起動できない状態です。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "스틱은 지금 부팅할 수 없는 상태입니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "O pendrive não pode inicializar agora." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "U 盘现在无法启动。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "隨身碟目前無法開機。" } }
       }
@@ -938,6 +1027,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "La clé n’a pas été modifiée." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "USB メモリは変更されていません。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "스틱은 바뀌지 않았습니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "O pendrive não foi alterado." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "U 盘未被更改。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "隨身碟未被更動。" } }
       }
@@ -949,6 +1039,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Impossible d’écrire sur le disque de destination : il a été retiré, ou c’est un disque interne ou le disque de démarrage." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込み先ディスクに書き込めません。取り外されたか、内蔵ディスクまたは起動ディスクです。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "대상 디스크에 쓸 수 없습니다. 분리되었거나 내장 디스크 또는 시동 디스크입니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Não é possível gravar no disco de destino: ele foi removido, é interno ou é o disco de inicialização." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法写入目标磁盘：它已被移除，或者是内置磁盘或启动磁盘。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "無法寫入目標磁碟：它已被移除，或者是內建磁碟或啟動磁碟。" } }
       }
@@ -960,6 +1051,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Le disque de destination n’a pas assez d’espace pour cette ISO." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込み先ディスクの容量がこの ISO には足りません。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "대상 디스크의 공간이 이 ISO에 비해 부족합니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "O disco de destino não tem espaço suficiente para esta ISO." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "目标磁盘空间不足以容纳此 ISO。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "目標磁碟的空間不足以容納此 ISO。" } }
       }
@@ -971,6 +1063,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ce nom de volume ne peut pas être utilisé en NTFS : 32 caractères au maximum, aucun des caractères \"*/:<>?\\|, et pas d’espace ni de point à la fin." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "このボリュームラベルは NTFS では使用できません。32 文字以内で、\"*/:<>?\\| を含まず、末尾がスペースやピリオドでない必要があります。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 볼륨 레이블은 NTFS에서 쓸 수 없습니다. 32자 이하여야 하고, \"*/:<>?\\|를 포함할 수 없으며, 공백이나 마침표로 끝날 수 없습니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Este nome de volume não pode ser usado em NTFS: no máximo 32 caracteres, nenhum destes caracteres \"*/:<>?\\| e sem espaço ou ponto no final." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "此卷标不能用于 NTFS：最多 32 个字符，不能包含 \"*/:<>?\\|，且不能以空格或句点结尾。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "此卷宗標籤無法用於 NTFS：最多 32 個字元，不可包含 \"*/:<>?\\|，且結尾不可為空格或句點。" } }
       }
@@ -982,6 +1075,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ce n’est pas une ISO d’installation de Windows." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "Windows インストール ISO ではありません。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "Windows 설치 ISO가 아닙니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Esta não é uma ISO de instalação do Windows." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "这不是 Windows 安装 ISO。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "這不是 Windows 安裝 ISO。" } }
       }
@@ -993,6 +1087,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Réessayer" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "もう一度試す" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "다시 시도" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Tentar Novamente" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重试" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "再試一次" } }
       }
@@ -1004,6 +1099,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Utiliser le nom de l’ISO" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ISO のラベルを使用" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO 레이블 사용" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Usar o nome da ISO" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "使用 ISO 卷标" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "使用 ISO 標籤" } }
       }
@@ -1015,6 +1111,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Utiliser les chargeurs d’amorçage signés Windows UEFI CA 2023" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "Windows UEFI CA 2023 署名のブートローダを使用" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "Windows UEFI CA 2023 서명 부트로더 사용" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Usar carregadores de inicialização assinados com Windows UEFI CA 2023" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "使用 Windows UEFI CA 2023 签名的引导加载程序" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "使用 Windows UEFI CA 2023 簽署的開機載入程式" } }
       }
@@ -1026,6 +1123,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Vérification" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "検証" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "검증" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Verificar" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "验证" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "驗證" } }
       }
@@ -1037,6 +1135,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Vérifier après l’écriture" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込み後に検証" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "쓰기 후 내용 검증" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Verificar após gravar" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "写入后验证" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "寫入後驗證" } }
       }
@@ -1048,6 +1147,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Vérification des données écrites" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込んだ内容を検証しています" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "기록한 내용을 검증하고 있습니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Verificando os dados gravados" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在验证写入的数据" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在驗證寫入的資料" } }
       }
@@ -1059,6 +1159,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Nom du volume" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ボリュームラベル" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "볼륨 레이블" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Nome do Volume" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "卷标" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "卷宗標籤" } }
       }
@@ -1070,6 +1171,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "En attente d’autorisation…" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "認証を待っています…" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "인증을 기다리고 있습니다…" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Aguardando autorização…" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在等待授权…" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在等待授權…" } }
       }
@@ -1081,6 +1183,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Les données écrites diffèrent de l’ISO : %@." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込んだ内容が ISO と異なります: %@。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "기록한 내용이 ISO와 다릅니다: %@." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Os dados gravados diferem da ISO: %@." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "写入的内容与 ISO 不一致：%@。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "寫入的內容與 ISO 不同：%@。" } }
       }
@@ -1092,6 +1195,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "ISO d’installation de Windows 10 ou 11. Vous pouvez aussi la déposer sur la fenêtre." } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "Windows 10・11 のインストール ISO。ウインドウにドロップすることもできます。" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "Windows 10·11 설치 ISO. 창에 끌어다 놓아도 됩니다." } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "ISO de instalação do Windows 10 ou 11. Você também pode soltá-la na janela." } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Windows 10 或 11 安装 ISO。也可以将其拖放到窗口中。" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "Windows 10 或 11 安裝 ISO。也可以將其拖放到視窗中。" } }
       }
@@ -1103,6 +1207,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Écriture de la table de partitions" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "パーティションテーブルを書き込んでいます" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "파티션 테이블을 쓰고 있습니다" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Gravando a tabela de partições" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在写入分区表" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在寫入分割區表" } }
       }
@@ -1114,6 +1219,7 @@
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Impossible d’éjecter « %@ » : %@" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "「%@」を取り出せませんでした: %@" } },
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "“%@”을 추출할 수 없습니다: %@" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Não foi possível ejetar “%@”: %@" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法推出“%@”：%@" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "無法退出「%@」：%@" } }
       }
