@@ -1,0 +1,233 @@
+<agent-task mode="execute">
+    <status>
+        - 2026-10-01 사용자와의 대화에서 확정한 내용이다. 기준 커밋은 `397b263`. `<decisions source="user">`는 사용자가 고른 것이며 다시 묻지 않는다. `<decisions source="planner">`는 그 결정에서 파생된 세부로, 구현 중 명백히 잘못된 것으로 드러나면 멈추고 보고한다.
+        - `<findings>`는 플래너가 코드·SDK·빌드로 확인한 사실이다. 다시 조사하지 않는다. 확인하지 못한 것은 `<unverified>`에 있다.
+        - 작업 규모: `SnakeStickCore`의 CLI에 ipc 모드 추가와 테스트, 앱의 헬퍼 경로 교체, 데몬 타깃 삭제, 배포 타깃 하향, `distutil/build_dmg.sh` 수정, 문서 갱신. 커밋 5개 안팎 (`<closing>`).
+    </status>
+
+    <objective>
+        # 루트 데몬을 없애고, 앱 번들의 `snakestick` CLI를 관리자 권한으로 실행해 디스크를 쓴다
+
+        ## 배경
+        - 지금 앱은 `SMAppService`로 등록한 루트 데몬 `SnakeStickHelper`에 Swift XPC로 작업을 맡긴다. 사용자는 로그인 항목 허용, 전체 디스크 접근 권한(FDA), 쓰기마다 관리자 인증까지 세 번 승인해야 한다.
+        - 데몬과 앱의 peer 검증에 쓰는 `XPCListener`·`XPCSession`의 `requirement:` 이니셜라이저가 macOS 26 전용이라, 앱의 배포 타깃을 내리지 못한다 (F1).
+        - 이 데몬을 없애고, 앱이 쓰기마다 AppleScript `do shell script … with administrator privileges`로 번들 안의 `snakestick`을 ipc 모드로 실행한다. 진행 상황과 취소는 Unix 소켓 하나로 주고받는다.
+
+        ## 범위
+        - `snakestick ipc --socket PATH` 서브커맨드 (§1, §2).
+        - 앱: `HelperClient`를 대신하는 실행기, osascript 호출, 소켓 서버 (§3).
+        - 데몬 경로 전체 삭제: `SnakeStickHelper` 타깃, launchd plist, XPC, Authorization Services, 로그인 항목 안내 (§4).
+        - CLI 바이너리를 앱 번들에 넣기 (§5).
+        - `MACOSX_DEPLOYMENT_TARGET`를 14.0으로 (§6).
+        - `distutil/build_dmg.sh`의 헬퍼 관련 부분 (§7).
+        - 문서: `docs/DESIGN.md`, `README.md`, `README.ko.md`, `CLAUDE.md` (§8).
+
+        ## 제외
+        - 바이너리 바꿔치기·소켓 가로채기처럼 같은 사용자 권한의 악성 프로세스를 상대로 한 방어 (결정 2). 서명 검증, 복사 후 실행, 소켓 peer 확인을 추가하지 않는다.
+        - 기존 설치의 정리(BTM 등록 해제, authorization DB의 right 삭제). 아직 배포 전이다 (결정 8).
+        - `slopdisk/`, `NTFS3G/`, `WIMLib/`의 수정. 이 패키지들에서 문제를 발견하면 고치지 않고 보고서에 적는다.
+        - 실제 USB 스틱에 쓰기. 사람이 하는 일이다 (`<manual-check>`).
+
+        ## 완료 조건
+        - `<acceptance>`의 명령이 기대 결과를 낸다. `code#ipc-mode`의 ensure가 테스트로 옮겨져 통과한다. `<closing>`의 보고서가 있다.
+    </objective>
+
+    <decisions source="user">
+        다시 묻지 말 것.
+        - 결정 1. 디스크 쓰기는 앱이 `/usr/bin/osascript`로 `do shell script … with administrator privileges`를 실행하고, 그 안에서 번들의 `snakestick ipc`를 돌리는 방식으로 한다. 이유: 로그인 항목 승인과 SMAppService가 사라지고, macOS 26 전용 XPC API 의존이 없어진다. 대가: launchd/BTM이 해 주던 데몬 바이너리 관리를 잃는다. 관리자 인증은 지금처럼 쓰기마다 한 번이다.
+        - 결정 2. 번들 안의 CLI를 그 자리에서 그대로 실행한다. 복사하거나 `codesign --verify`하지 않는다. 같은 사용자 권한의 악성 프로세스에 대한 위험은 받아들인다.
+        - 결정 3. CLI 소스는 `SnakeStickCore` 패키지에 그대로 둔다. Xcode 프로젝트가 그 제품을 앱 번들에 넣는다. `swift run snakestick`과 `swift test`의 CLI 테스트를 유지하기 위해서다.
+        - 결정 4. 앱과 CLI는 Unix 도메인 소켓 연결 하나로 통신한다. 앱이 권한 0700인 임시 디렉토리에서 listen하고 CLI가 connect한다. 메시지는 양방향 모두 줄 단위 JSON(NDJSON)이다. FIFO는 쓰지 않는다. 상대가 열기 전까지 open이 블로킹되는 문제와 채널 두 개를 관리하는 비용 때문이다.
+        - 결정 5. 데몬 경로는 남김없이 지운다 (§4).
+        - 결정 6. 앱의 배포 타깃은 14.0이다. `@Observable`과 `SnakeStickCore`의 `.macOS(.v14)` 때문에 그 아래로는 내리지 않는다 (F2).
+        - 결정 7. TCC(이동식 디스크, `~/Downloads`)에서 어떤 일이 생길지는 모른다. 구현한 뒤 사용자가 실제 USB로 확인한다. 그때까지 FDA 안내 경로는 남겨 둔다 (P6).
+        - 결정 8. 기존 데몬 설치를 정리하는 코드는 넣지 않는다.
+        - 결정 9. 이 대화 초반에 검토한 "C XPC API로 전환" 안은 폐기한다. 그 작업으로 바뀐 파일은 없다.
+    </decisions>
+
+    <decisions source="planner">
+        - P1. `InstallerRequest`는 argv가 아니라 소켓의 첫 메시지로 보낸다. argv는 `ipc --socket PATH`뿐이다. 이유: AppleScript·셸 인용을 줄이고, `ps`에 ISO 경로가 드러나지 않게 하고, argv 길이 제한을 피한다.
+        - P2. AppleScript 소스를 문자열 보간으로 만들지 않는다. `osascript -e 'on run argv … end run' -- <cli> <socket> <prompt>`처럼 값은 argv로 넘기고, 스크립트 안에서 `quoted form of`로 셸 인용을 한다 (code#osascript). `NSAppleScript`도 쓰지 않는다. `do shell script`는 CLI가 끝날 때까지 호출 스레드를 붙잡는다.
+        - P3. 취소는 두 경로다. 앱이 `cancel` 메시지를 보내거나, CLI 쪽 소켓이 EOF를 받는 경우다(앱 종료·크래시). 둘 다 파이프라인 Task를 cancel하고, 정리가 끝난 뒤 `failed(kind: .cancelled)`를 보내고 종료한다. 기존 데몬의 "앱이 연결을 끊으면 작업을 취소한다"는 동작을 대신한다.
+        - P4. CLI는 종결 이벤트(`finished`/`failed`)를 보낸 뒤 소켓을 닫고 종료한다. 앱은 종결 이벤트 없이 EOF를 받거나 osascript가 종료되면 기존 `helperDisconnected` 경로로 실패 처리한다(이름은 바꿔도 된다).
+        - P5. osascript가 AppleScript 오류 -128(User canceled)로 끝나면, 지금의 `authorizationCancelled`와 같이 조용히 `.idle`로 돌아간다. 그 밖의 osascript 실패는 stderr를 붙여 실패 화면으로 보낸다.
+        - P6. FDA 안내는 `failed` 이벤트의 `InstallerError.errno == EPERM`일 때 띄운다. 데몬에 있던 TCC.db 열기 검사(`HelperService.hasFullDiskAccess`)는 옮기지 않는다. osascript로 띄운 프로세스에서 그 검사가 무엇을 뜻하는지 알 수 없기 때문이다. EPERM이 실제로 이 필드에 실려 오는지는 Core의 오류 생성 지점을 확인하고, 실리지 않는 경로가 있으면 보고서에 적는다. 그 경로의 Core 수정은 범위 밖이다.
+        - P7. 메시지 타입은 CLI와 앱이 함께 쓰므로 `SnakeStickCore`에 둔다. `HelperProtocol.swift`의 `HelperRequest`/`HelperReply`/`HelperVersion`과 데몬 전용 상수는 지운다. 앱이 계속 쓰는 상수(예: 로거 subsystem으로 쓰는 `appBundleIdentifier`)는 남긴다. 파일 이름은 실행자가 정한다.
+        - P8. ipc 모드는 `.image` 타깃도 받는다. root가 아니어도 `.image`는 쓸 수 있으므로, ipc 경로 전체를 root 없이 통합 테스트할 수 있다. `.device` 타깃은 `make`와 같은 검사(root, 적격성, 크기)를 그대로 거친다.
+    </decisions>
+
+    <findings>
+        - F1. scratch DerivedData에서 `xcodebuild … MACOSX_DEPLOYMENT_TARGET=14.0 CODE_SIGNING_ALLOWED=NO build`를 실행하면 실패하는 곳은 `SnakeStick/SnakeStickHelper/main.swift:21,23`(`XPCListener(service:requirement:…)`, `isFromSameTeam…`, macOS 26.0)뿐이었다. 다만 빌드가 헬퍼에서 멈춰서 앱 타깃은 컴파일되지 않았다. 앱 쪽 `HelperClient.swift:140`의 `XPCSession(machService:requirement:…)`도 SDK의 `XPC.swiftmodule` swiftinterface에서 26 전용임을 확인했다. 둘 다 §4에서 사라진다.
+        - F2. 14 미만으로 못 내리는 이유: `SnakeStick/SnakeStick/Model/InstallerViewModel.swift:10`의 `@Observable`, `SnakeStickCore/Package.swift`의 `.macOS(.v14)`. slopdisk·NTFS3G·WIMLib은 `.v13`이다. `project.pbxproj`에서 `MACOSX_DEPLOYMENT_TARGET = 26.6;`는 4곳(457, 515, 595, 616행)이고, 초기 커밋부터 Xcode 기본값이었다.
+        - F3. 앱 번들의 실행 파일은 `Contents/MacOS/SnakeStick`이고, 부트 볼륨은 대소문자 무시 APFS다(`diskutil info /`의 Personality가 `APFS`). CLI 제품 이름 `snakestick`을 `Contents/MacOS`에 넣으면 앱 실행 파일과 같은 경로가 된다.
+        - F4. `UEFINTFSPayload.directory()`(`SnakeStickCore/Sources/SnakeStickCore/UEFINTFSPayload.swift` 20~30행)는 `Bundle.main.resourceURL`, `실행 파일 디렉토리/../Resources`, 실행 파일 디렉토리 등을 차례로 찾는다. 빌드된 앱의 `Contents/Resources/SnakeStickCore_SnakeStickCore.bundle`이 있는 것을 확인했다. `Contents/` 바로 아래의 하위 디렉토리(예: `Contents/Helpers`)에 둔 실행 파일은 `../Resources`로 이 번들을 찾는다.
+        - F5. 기존 헬퍼는 `Embed Helper` 복사 단계(`dstSubfolder = Executables`)로 `Contents/MacOS`에 들어가고, `Embed LaunchDaemons` 단계가 plist를 `Contents/Library/LaunchDaemons`에 넣는다. 둘 다 `project.pbxproj`의 `PBXCopyFilesBuildPhase`다. 프로젝트는 `PBXFileSystemSynchronizedRootGroup`(폴더 동기화)을 쓴다.
+        - F6. `InstallerEvent`(`Model.swift:105`)는 `Codable`이고 `progress`·`log`·`finished`·`failed` 네 경우가 있다. 앱의 `InstallerViewModel.handle(_:)`가 이것만 보고 화면 상태를 바꾼다. `HelperClient`가 앱에 노출하는 것은 `onEvent`·`onDisconnect`·`connect`·`start`·`cancel`이다.
+        - F7. CLI의 `make`(`SnakeStickCore/Sources/snakestick/SnakeStickCLI.swift`)는 `getuid() == 0`, 디스크 존재, `isEligible`, `isLargeEnough`를 차례로 검사한 뒤 `write(_:verbose:finished:)`로 파이프라인을 돌린다. `write`는 SIGINT를 Task 취소로 바꾼다. 서브커맨드 파싱은 `Arguments.swift`다.
+        - F8. Core가 실행하는 외부 도구는 전부 절대 경로다(`/usr/bin/hdiutil`, `/usr/sbin/diskutil`, `/sbin/newfs_msdos`, `/usr/bin/ditto`). `do shell script`의 최소 환경(PATH)에서도 동작한다.
+        - F9. 앱 타깃은 `ENABLE_APP_SANDBOX = NO`, `ENABLE_HARDENED_RUNTIME = YES`다. 샌드박스가 꺼져 있어서 osascript를 실행하고 관리자 권한으로 띄우는 것이 가능하다.
+        - F10. `distutil/build_dmg.sh`는 헬퍼를 이름으로 다룬다(29~31, 39, 205, 224, 291행: `HELPER_NAME`, `HELPER_PLIST`, 팀 일치 검증, Developer ID 재서명, 버전 재연결 주석).
+        - F11. 데몬 시절의 교훈(`SnakeStickHelper/main.swift`의 주석, 2026-09-30): Swift 6에서 top-level 코드의 클로저는 main actor에 격리되고, 그 클로저를 main이 아닌 큐에서 부르면 런타임 격리 검사가 프로세스를 죽인다(EXC_BREAKPOINT). 쓰기 도중에 데몬이 죽었던 원인이다.
+        - F12. 데몬을 언급하는 문서: `docs/DESIGN.md`의 "The app" 절(60행~), DESIGN NOTES의 "A root daemon for the app" 항목(134행~), REQUIREMENTS(188행). `README.md` 63~70행(승인 절차)과 106~112행(FDA FAQ), `README.ko.md`의 같은 부분. `CLAUDE.md`의 Layout 표, Build and test의 데몬 항목.
+    </findings>
+
+    <unverified>
+        - U1. `do shell script`로 띄운 루트 프로세스가 이동식 디스크의 raw 노드와 `~/Downloads`의 ISO를 열 수 있는지. 가능성은 셋이다: 그냥 열린다, 앱 이름으로 TCC 프롬프트가 뜬다, FDA 없이는 EPERM이 난다. `<manual-check>`로 확인한다.
+        - U2. Xcode가 로컬 패키지의 executable 제품을 앱 타깃의 의존성으로 빌드해 복사 단계에 넣을 수 있는지. 안 되면 §5의 멈춤 규칙을 따른다.
+        - U3. 복사 단계의 `CodeSignOnCopy`로 재서명된 CLI에 hardened runtime 플래그가 붙는지. 공증이 이것을 요구한다.
+    </unverified>
+
+    <reference name="먼저 읽을 것">
+        - `docs/DESIGN.md` 전체, `CLAUDE.md`의 Safety rules.
+        - `Prompts/10-implementation.report.md`에서 헬퍼·TCC·인증 흐름에 관한 부분(P10, TCC, 헬퍼 크래시).
+        - `SnakeStick/SnakeStick/Helper/HelperClient.swift`, `SnakeStick/SnakeStick/Model/InstallerViewModel.swift`(`start`, `confirmCancel`, `allowsExit`, `handle`, `helperDisconnected`), `SnakeStick/SnakeStickHelper/HelperService.swift`(옮겨야 할 검사와 동작).
+    </reference>
+
+    <code id="wire" lang="text/x-pseudocode; variant=typescript">
+        // 한 줄에 JSON 하나. 인코딩은 Core의 기존 Codable을 그대로 쓴다.
+        // 앱 → CLI
+        type AppMessage =
+            | { start: InstallerRequest }   // 연결 직후 정확히 한 번. 첫 메시지가 아니면 CLI는 usage 오류로 끝낸다.
+            | { cancel: {} };               // 언제든. 두 번 와도 된다.
+
+        // CLI → 앱
+        type CLIMessage = { event: InstallerEvent };  // progress | log | finished | failed
+        // 마지막 메시지는 반드시 finished 또는 failed. 그 뒤에 CLI가 소켓을 닫는다.
+        // root가 아닌데 .device 요청이 오면, make와 같은 검사에서 걸린 내용을 failed로 보내고 끝낸다.
+    </code>
+
+    <code id="ipc-mode" lang="text/x-pseudocode; variant=swift+imagine">
+        imagine function runIPC(socketPath: String) async -> ExitCode {
+            requirements(`
+                socketPath에 connect하고 첫 줄에서 InstallerRequest를 읽는다.
+                .device면 make와 같은 검사(root, 존재, isEligible, isLargeEnough)를 거친다. 확인 질문(--yes 없을 때의 입력)은 없다.
+                파이프라인 이벤트를 code#wire 형식으로 흘린다. 별도로 소켓을 계속 읽어서
+                cancel 메시지나 EOF가 오면 파이프라인 Task를 cancel한다 (P3).
+                ipc 모드에서는 stdout에 아무것도 쓰지 않는다. 사람이 읽을 출력은 stderr로만 보낸다.
+                종료 코드는 make/build의 규칙을 따른다.
+            `);
+            ensure(/* .image 요청 → progress 이벤트가 하나 이상 오고, 마지막이 finished, 종료 코드 0 */);
+            ensure(/* 진행 중 cancel 전송 → 마지막 이벤트가 failed(kind: .cancelled), 종료 코드는 make가 SIGINT를 받았을 때와 같다 */);
+            ensure(/* 진행 중 앱 쪽 소켓을 닫음 → CLI가 정리 후 종료한다. SIGPIPE로 죽지 않는다 (종료 시그널이 아니라 종료 코드로 끝난다) */);
+            ensure(/* 첫 메시지가 start가 아님 → failed 또는 usage 종료, 대상은 건드리지 않는다 */);
+            ensure(/* root 아님 + .device 요청 → failed(kind: .rootRequired), 장치를 열지 않는다 */);
+            ensure(/* 존재하지 않는 소켓 경로 → 0이 아닌 종료 코드, 아무것도 열지 않는다 */);
+        }
+    </code>
+
+    <code id="app-runner" lang="text/x-pseudocode; variant=swift+imagine">
+        // HelperClient 자리. InstallerViewModel이 보는 표면(onEvent, onDisconnect, start, cancel)은 최대한 유지한다.
+        @MainActor
+        imagine class InstallerRunner {
+            var onEvent: ((InstallerEvent) -> Void)?
+            var onEnded: ((EndReason) -> Void)?   // authCancelled | lost(String) | osascriptFailed(String)
+
+            imagine func start(_ request: InstallerRequest, prompt: String) async throws {
+                requirements(`
+                    1. 0700 임시 디렉토리를 만들고 소켓을 bind/listen한다. 경로가 sun_path(104바이트)를 넘으면 시작하기 전에 실패한다.
+                    2. code#osascript를 Process로 실행한다. 이 시점에 관리자 대화상자가 뜬다.
+                    3. accept와 osascript 종료를 경쟁시킨다. osascript가 먼저 끝나면 P5대로 처리한다.
+                    4. accept되면 start 메시지를 보내고, 이벤트를 onEvent로 넘긴다.
+                    5. 종결 이벤트, EOF, osascript 종료가 오면 소켓과 임시 디렉토리를 치운다.
+                `);
+                ensure(/* 인증 대화상자에서 취소 → onEnded(.authCancelled), 임시 디렉토리가 남지 않는다 */);
+            }
+
+            imagine func cancel() { requirements(`cancel 메시지를 보낸다. 이미 끝난 연결이면 아무것도 하지 않는다. SIGPIPE로 앱이 죽지 않는다.`); }
+        }
+    </code>
+
+    <code id="osascript" lang="text/x-pseudocode; variant=applescript">
+        -- /usr/bin/osascript -e <아래> -- <CLI 절대 경로> <소켓 경로> <프롬프트>
+        on run argv
+            set cli to item 1 of argv
+            set sock to item 2 of argv
+            set promptText to item 3 of argv
+            do shell script (quoted form of cli) & " ipc --socket " & (quoted form of sock) ¬
+                with prompt promptText with administrator privileges
+        end run
+        -- hint: 프롬프트는 지금 InstallerViewModel.start가 만드는 현지화 문자열을 그대로 쓴다.
+    </code>
+
+    <specs>
+        §1 Core: 메시지 타입 (P7, code#wire)
+        - `SnakeStickCore`에 앱 ↔ CLI 메시지 타입과 줄 단위 인코딩·디코딩을 둔다. 소켓 I/O 자체는 CLI와 앱이 각자 구현해도 되고, 공유할 만하면 Core에 둔다.
+        - 단위 테스트: 각 메시지가 왕복 인코딩된다. 한 줄에 개행이 끼지 않는다(로그 문자열에 `\n`이 있어도 한 줄이다).
+
+        §2 CLI: `ipc` 서브커맨드 (code#ipc-mode, P1, P3, P4, P8)
+        - `Arguments`에 `ipc --socket PATH`를 추가한다. 사람이 쓰는 명령이 아니므로 `usage` 출력에는 넣지 않거나, 내부용이라고 표시한다. `CLITests`의 파싱 테스트에 추가한다.
+        - `make`의 검사와 `write`의 취소·정리 흐름은 복사하지 말고 공유한다. 검사 순서와 오류 문구가 `make`와 같아야 한다.
+        - 통합 테스트(`IntegrationTests` 아래): 테스트가 앱 역할로 소켓을 listen하고, 빌드된 `snakestick`을 `ipc --socket`으로 실행해 fixture ISO의 `.image` 요청을 보낸다. code#ipc-mode의 ensure를 전부 여기와 단위 테스트로 옮긴다.
+
+        §3 앱: 실행기 (code#app-runner, code#osascript, P2, P5, P6)
+        - `HelperClient`와 `AdminAuthorization`을 실행기로 바꾼다. `InstallerViewModel`의 `start`는 "connect → authorization → helper.start" 대신 "runner.start"가 된다. `.starting` 단계("Waiting for authorization…")는 첫 이벤트가 올 때까지 유지한다.
+        - `allowsExit`·`confirmCancel`의 동작은 그대로다. 주석의 "the helper cancels the job when the app disconnects"는 "앱이 종료되면 CLI가 EOF를 받고 정리한다"로 바꾼다.
+        - `showsApprovalNotice`와 로그인 항목 알림을 지운다. `showsFullDiskAccessNotice`는 P6의 조건으로 띄운다.
+        - `Localizable.xcstrings`에서 지운 UI의 문자열을 지우고, 새 문자열에는 한국어 번역을 넣는다.
+
+        §4 데몬 삭제 (결정 5)
+        - `SnakeStick/SnakeStickHelper/` 디렉토리, `SnakeStickHelper` 타깃과 그 의존성·복사 단계, `SnakeStick/LaunchDaemons/`와 `Embed LaunchDaemons` 단계, `HelperClient.swift`, `AdminAuthorization.swift`, Core의 데몬 전용 타입·상수(P7).
+        - 지운 뒤 `grep -rn "SMAppService\|XPCSession\|XPCListener\|import XPC\|AuthorizationCopyRights\|LaunchDaemons" SnakeStick SnakeStickCore/Sources distutil`가 아무것도 찾지 않아야 한다.
+
+        §5 번들에 CLI 넣기 (결정 3, F3, F4, U2, U3)
+        - CLI를 `Contents/MacOS/snakestick`에 두지 않는다 (F3). `Contents/Helpers/snakestick`을 기본으로 하고, 다른 위치를 고르면 이유를 보고서에 적는다. 앱은 `Bundle.main`에서 이 경로를 만든다.
+        - 빌드된 앱에서 `Contents/Helpers/snakestick ipc …`가 UEFI:NTFS 리소스를 찾는지는 §2의 통합 테스트가 아니라 번들된 바이너리로 확인한다 (`<acceptance>` 6).
+        - **멈춤 규칙:** Xcode가 패키지의 executable 제품을 앱 타깃에 넣지 못하면(U2), 소스를 Xcode 타깃으로 복사하는 식으로 우회하지 말고 멈춰서 보고한다. 보고에는 다음 후보와 각각의 대가를 적는다. (a) CLI 본문을 패키지의 라이브러리 타깃으로 옮기고, 패키지 실행 파일과 Xcode의 Command Line Tool 타깃이 둘 다 그것을 부르는 얇은 `main`이 된다. (b) Run Script 단계에서 `swift build`로 만든 바이너리를 복사한다. (c) 그 밖에 찾은 방법.
+
+        §6 배포 타깃 (결정 6)
+        - `MACOSX_DEPLOYMENT_TARGET`를 4곳 모두 14.0으로 바꾼다. 앱 코드에 macOS 15 이상 전용 API가 나오면 `#available`로 감싸서 동작이 바뀌는 경우(UI가 달라지는 경우 포함) 멈추고 보고한다. 단순한 대체 API가 있고 동작이 같으면 바꾸고 보고서에 적는다.
+
+        §7 `distutil/build_dmg.sh` (F10, U3)
+        - 헬퍼의 재서명·팀 검증·plist 확인을 지우고, 번들된 CLI가 Developer ID로 서명되고 hardened runtime 플래그를 갖는지 확인하는 단계를 넣는다. 실제 공증 실행은 하지 않는다. 사람이 한다.
+
+        §8 문서 (F12)
+        - `docs/DESIGN.md`: "The app" 절(승인은 쓰기마다의 관리자 인증 하나, FDA는 U1 결과를 기다린다는 표시와 함께), DESIGN NOTES의 루트 데몬 항목을 osascript + ipc 설명으로, REQUIREMENTS를 macOS 14로.
+        - `README.md`와 `README.ko.md`를 함께: 배지·요구 사항(macOS Sonoma 14 이상), 승인 절차에서 로그인 항목 단계 삭제, FDA FAQ의 "launchd daemon" 설명. FDA가 여전히 필요한지는 U1이므로, 현재 문구를 유지하되 데몬 언급만 고친다.
+        - `CLAUDE.md`: Layout 표의 `SnakeStickHelper`/`LaunchDaemons`, Build and test의 데몬 등록·로그·"헬퍼가 쓰는 중에 다시 빌드하지 말 것" 항목을 새 구조에 맞게 고친다(쓰는 중에 다시 빌드하면 번들의 CLI가 바뀐다는 점은 여전히 사실이다).
+    </specs>
+
+    <constraints>
+        - SIGPIPE. 앱이 죽은 뒤 CLI가 소켓에 쓰면 기본 동작으로 CLI가 즉시 죽고, 마운트 가드 해제와 정리가 건너뛰어진다. 반대로 CLI가 끝난 뒤 앱이 `cancel`을 쓰면 앱이 죽는다. 양쪽 모두 `SO_NOSIGPIPE`(또는 SIGPIPE 무시)를 건다. code#ipc-mode의 세 번째 ensure가 이것을 잡는다.
+        - 경로 인용. ISO 경로, 앱 경로(`/Applications/Snake Stick 2.app` 같은 공백), 소켓 경로에 공백·작은따옴표·한글이 들어가도 동작해야 한다. P1·P2를 지키면 ISO 경로는 셸을 거치지 않는다. 테스트의 임시 경로에 공백과 한글을 넣는다.
+        - `sun_path`는 104바이트다. `NSTemporaryDirectory()`가 이미 50자 안팎이므로 디렉토리·파일 이름을 짧게 한다. 넘치면 잘린 경로에 bind되지 않게 미리 실패한다.
+        - accept가 영원히 기다리지 않게 한다. 인증을 취소하거나 CLI가 connect 전에 죽으면 osascript가 끝난다. accept는 그것과 함께 정리되어야 한다.
+        - 종결 이벤트는 소켓을 닫기 전에 다 써야 한다(버퍼 flush). 앱은 종결 이벤트를 받은 뒤의 EOF를 실패로 보지 않는다.
+        - F11. CLI에서 DispatchSource 핸들러나 소켓 읽기 콜백을 main이 아닌 큐에서 돌릴 때, main actor 격리 클로저가 되지 않게 한다. 컴파일은 되고 실행 중에 죽는다.
+        - `do shell script`는 CLI의 stdout을 메모리에 모았다가 끝날 때 돌려준다. ipc 모드에서 stdout에 쓰지 않는다(code#ipc-mode). libntfs-3g·wimlib이 직접 찍는 출력은 막을 수 없으니, 그런 출력이 보이면 보고서에 적는다.
+        - `grep -rn dataLossRisk SnakeStickCore/Sources`는 계속 정확히 한 줄(`Partitioning.writePartitionTable`)이어야 한다. ipc 모드는 새 쓰기 경로를 만들지 않고 기존 파이프라인을 부른다.
+        - 테스트는 실제 디스크에 쓰지 않는다. `.device` 경로는 root 아님 거부만 테스트한다. 장치 경로를 추측하거나 손으로 적지 않는다(`CLAUDE.md` Safety rules).
+        - 명령줄 `xcodebuild`가 패키지에 빈 `.swiftpm/xcode` 디렉토리를 남기는 문제(`CLAUDE.md`)는 그대로다. 실행 전부터 있던 디렉토리는 건드리지 않는다.
+    </constraints>
+
+    <acceptance>
+        저장소 루트에서. 오래 걸리는 명령은 `CLAUDE.md`의 kill-after 루프로 감싼다.
+        1. `cd SnakeStickCore && swift test` — 통과.
+        2. `cd SnakeStickCore && SNAKESTICK_TEST_INTEGRATION=1 swift test` — 통과. ipc 통합 테스트가 실행된 것을 출력에서 확인한다.
+        3. `xcodebuild -workspace SnakeStick.xcworkspace -scheme SnakeStick -configuration Debug build` — `BUILD SUCCEEDED`, 배포 타깃 경고 없음.
+        4. `grep -n MACOSX_DEPLOYMENT_TARGET SnakeStick/SnakeStick.xcodeproj/project.pbxproj` — 전부 `14.0`.
+        5. 빌드된 `SnakeStick.app`에 `Contents/Helpers/snakestick`(또는 §5에서 고른 경로)이 있고, `Contents/MacOS`에는 `SnakeStick`과 Xcode 디버그 산출물만 있으며, `Contents/Library/LaunchDaemons`가 없다.
+        6. 빌드된 번들의 CLI로 `.image` ipc를 한 번 돌린다(§2 테스트 하네스나 작은 스크립트로, root 없이). `finished`까지 오고, UEFI:NTFS 리소스를 찾지 못했다는 오류가 없다.
+        7. `codesign -dv --verbose=4 <번들의 CLI>` — 서명돼 있다. `flags`에 `runtime`이 있는지 보고서에 적는다(U3).
+        8. §4의 grep — 결과 없음. `grep -rn dataLossRisk SnakeStickCore/Sources` — 정확히 한 줄.
+        9. `hdiutil info | grep -c image-path` — 테스트 전후가 같다.
+        10. `git -C NTFS3G/Vendor/ntfs-3g status --short`, `git -C WIMLib/Vendor/wimlib status --short` — 비어 있다.
+    </acceptance>
+
+    <manual-check>
+        사람이 실제 USB 스틱으로 한다. 실행자는 절차만 보고서에 적고 직접 하지 않는다.
+        - 앱에 FDA를 주지 않은 상태에서 `~/Downloads`의 ISO와 실제 USB 스틱으로 쓰기: 관리자 대화상자 → (TCC 프롬프트가 뜨는지) → 결과. U1의 세 가능성 중 어느 것인지 기록한다.
+        - 쓰는 도중 "Stop" → 정리 후 대기 화면으로. 쓰는 도중 앱 강제 종료(`kill -9`) → `ps`에서 CLI가 정리 후 사라지는지, 스틱이 마운트 가드에 묶여 있지 않은지.
+        - 관리자 대화상자에서 취소 → 조용히 대기 화면으로.
+        - 결과에 따라 FDA 안내와 README의 FDA 문구를 지울지 사용자가 정한다.
+    </manual-check>
+
+    <closing>
+        - 보고서: `Prompts/20-osascript-ipc.report.md`. 한국어. "확인한 것"(실제로 실행해 통과한 명령과 그 결과만)과 "확인하지 못한 것"(U1~U3, `<manual-check>`)을 나눈다. 실행하지 않은 명령을 확인한 것으로 적지 않는다. 지시서와 다르게 한 것은 따로 절을 만들어 이유와 함께 적는다.
+        - 커밋: 경로를 명시해서만 스테이징·커밋한다(`git add -- <paths>`, `git commit -m "…" -- <paths>`). 제목은 짧은 영어 명령문이고 co-author 줄은 넣지 않는다. 나누는 단위는 대략 다음과 같다.
+          1. Core 메시지 타입과 CLI `ipc` 서브커맨드, 테스트
+          2. 앱 실행기로 교체하고 데몬 삭제 (§3, §4, §5)
+          3. 배포 타깃 14.0 (§6)
+          4. `distutil/build_dmg.sh` (§7)
+          5. 문서 (§8)
+    </closing>
+</agent-task>
