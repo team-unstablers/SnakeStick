@@ -1,9 +1,12 @@
 # SnakeStick — notes for coding agents
 
 SnakeStick writes Windows 10/11 installation media on macOS. Read `docs/DESIGN.md` first; it describes
-the design, the CLI and the known limitations. `README.md` (and its Korean copy `README.ko.md`) is the
-user-facing page for people who download the app; keep the two in step. This file is about working in
-the repository.
+the design, the CLI and the known limitations. `README.md` is the user-facing page for
+people who download the app. Its translations (`README.ko.md`, `README.ja.md`, `README.zh-Hans.md`,
+`README.zh-Hant.md`, `README.de.md`, `README.fr.md`, `README.es.md`, `README.pt-BR.md`, `README.ru.md`)
+follow the app's localizations in `SnakeStick/SnakeStick/Localizable.xcstrings`; keep them all in step
+with `README.md`, and keep the bold UI labels they quote identical to the app's strings in that
+language. This file is about working in the repository.
 
 ## Layout
 

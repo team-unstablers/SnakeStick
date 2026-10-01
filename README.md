@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <b>English</b> · <a href="README.ko.md">한국어</a>
+  <b>English</b> · <a href="README.ko.md">한국어</a> · <a href="README.ja.md">日本語</a> · <a href="README.zh-Hans.md">简体中文</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.pt-BR.md">Português (Brasil)</a> · <a href="README.ru.md">Русский</a>
 </p>
 
 <p align="center">
@@ -39,7 +39,8 @@
   disk never show up, the target is checked again right before writing, and nothing is erased until you confirm.
 - 🧹 **No Mac leftovers.** The Windows partition is written without ever being mounted, so no `.DS_Store`, `._` or
   `.fseventsd` files end up on the stick.
-- 🍎 **A native Mac app.** Written in Swift and SwiftUI, in English and Korean. Free and open source under the GPLv3.
+- 🍎 **A native Mac app.** Written in Swift and SwiftUI, in English, Korean, Japanese, Chinese (Simplified and
+  Traditional), German, French, Spanish, Brazilian Portuguese and Russian. Free and open source under the GPLv3.
 
 ## 📥 Download
 
