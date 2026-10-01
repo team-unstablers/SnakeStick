@@ -47,7 +47,13 @@ let package = Package(
         .executableTarget(
             name: "snakestick",
             dependencies: ["SnakeStickCore"],
-            swiftSettings: swiftSettings
+            swiftSettings: swiftSettings,
+            linkerSettings: [
+                // The app bundles this tool as Contents/Helpers/snakestick. Linked into both the
+                // app and the tool, the packages become frameworks in Contents/Frameworks, and
+                // Xcode gives the tool only @loader_path and a path into its build directory.
+                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"]),
+            ]
         ),
         .testTarget(
             name: "SnakeStickCoreTests",

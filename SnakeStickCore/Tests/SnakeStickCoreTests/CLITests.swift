@@ -7,8 +7,10 @@ import Testing
 
 private final class BundleMarker {}
 
-/// The `snakestick` binary built next to the test bundle.
-let snakestickBinary = Bundle(for: BundleMarker.self).bundleURL.deletingLastPathComponent().appendingPathComponent("snakestick").path
+/// The `snakestick` binary built next to the test bundle, or `SNAKESTICK_TEST_BINARY` (the one in a
+/// built app, `SnakeStick.app/Contents/Helpers/snakestick`).
+let snakestickBinary = ProcessInfo.processInfo.environment["SNAKESTICK_TEST_BINARY"]
+    ?? Bundle(for: BundleMarker.self).bundleURL.deletingLastPathComponent().appendingPathComponent("snakestick").path
 
 struct ArgumentTests {
     @Test func make() throws {

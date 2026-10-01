@@ -16,14 +16,14 @@ public enum UEFINTFSPayload {
     /// The resource directory holding the files and `VERSIONS.md`.
     ///
     /// Looked up by hand rather than through `Bundle.module`, whose accessor calls `fatalError`
-    /// when the bundle is missing, and which does not look in `Contents/Resources` for the helper
-    /// daemon that lives in the app's `Contents/MacOS`.
+    /// when the bundle is missing, and which does not look in `Contents/Resources` for the
+    /// command line tool the app bundles as `Contents/Helpers/snakestick`.
     public static func directory() throws -> URL {
         let bundleName = "SnakeStickCore_SnakeStickCore.bundle"
         let executableDirectory = Bundle.main.executableURL?.deletingLastPathComponent()
         let candidates: [URL?] = [
             Bundle.main.resourceURL,                                            // app
-            executableDirectory?.deletingLastPathComponent().appendingPathComponent("Resources"),  // helper in Contents/MacOS
+            executableDirectory?.deletingLastPathComponent().appendingPathComponent("Resources"),  // tool in Contents/Helpers
             Bundle.main.bundleURL,                                              // command line tool
             executableDirectory,
             Bundle(for: BundleMarker.self).resourceURL,                         // test bundle, framework

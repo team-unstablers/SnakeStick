@@ -79,19 +79,6 @@ struct ModelTests {
         #expect(try JSONDecoder().decode(InstallerRequest.self, from: JSONEncoder().encode(request)) == request)
     }
 
-    @Test func helperMessagesRoundTripThroughJSON() throws {
-        let requests: [HelperRequest] = [
-            .start(.init(isoPath: "/tmp/w.iso", target: .device(bsdName: "disk4")), authorization: Data(repeating: 7, count: 32), prompt: "Erase?"),
-            .cancel,
-            .version,
-        ]
-        #expect(try JSONDecoder().decode([HelperRequest].self, from: JSONEncoder().encode(requests)) == requests)
-        let replies: [HelperReply] = [
-            .accepted, .rejected(reason: "busy"), .event(.log("x")), .version(.init(marketing: "1.0", build: "1")),
-        ]
-        #expect(try JSONDecoder().decode([HelperReply].self, from: JSONEncoder().encode(replies)) == replies)
-    }
-
     @Test func phasesAreNumberedOneToEight() {
         #expect(Phase.allCases.map(\.rawValue) == Array(1 ... 8))
     }

@@ -112,6 +112,7 @@ public enum IPC {
             self.fd = fd
             var on: Int32 = 1
             setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
+            IPC.closeOnExec(fd)
         }
 
         deinit {
@@ -238,6 +239,7 @@ public enum IPC {
                     throw SocketError(operation: "socket", errno: Darwin.errno)
                 }
                 self.fd = fd
+                IPC.closeOnExec(fd)
                 let status = withUnsafePointer(to: &address) {
                     $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
                         bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
@@ -308,6 +310,12 @@ public enum IPC {
             unlink(socketPath)
             rmdir(directory.path)
         }
+    }
+
+    /// Keeps `fd` out of the processes started meanwhile (osascript, hdiutil, diskutil): a child
+    /// holding the connection would delay the EOF the other side waits for.
+    private static func closeOnExec(_ fd: Int32) {
+        _ = fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC)
     }
 
     private static func address(for path: String) throws -> sockaddr_un {

@@ -12,7 +12,8 @@ final class InstallerViewModel {
     enum Stage: Equatable {
         /// 01 / 02, and after a stop (`stoppedByUser`).
         case idle
-        /// Between "Erase and Write" and the helper accepting the job.
+        /// Between "Erase and Write" and the first event from the tool ("Waiting for
+        /// authorization…" while the administrator dialog is up).
         case starting
         /// 04.
         case writing(InstallerProgress)
@@ -55,15 +56,14 @@ final class InstallerViewModel {
     // Sheets
     var showsEraseConfirmation = false
     var showsCancelConfirmation = false
-    var showsApprovalNotice = false
     var showsFullDiskAccessNotice = false
 
     /// The tag of the disabled note at the bottom of the disk menu.
     static let noteTag = "--note--"
 
-    @ObservationIgnored private let helper = HelperClient()
+    @ObservationIgnored private let runner = InstallerRunner()
     @ObservationIgnored private var watcher: DiskWatcher?
-    @ObservationIgnored private let logger = Logger(subsystem: HelperConstants.appBundleIdentifier, category: "installer")
+    @ObservationIgnored private let logger = Logger(subsystem: SnakeStickConstants.appBundleIdentifier, category: "installer")
     /// The disk the current or last job wrote to, for the eject button and the messages.
     @ObservationIgnored private var jobDisk: DiskCandidate?
     /// What 05 is up for: nil for "Cancel", otherwise the close or quit that asked.
@@ -74,8 +74,8 @@ final class InstallerViewModel {
     @ObservationIgnored var performExit: ((ExitRequest) -> Void)?
 
     init() {
-        helper.onEvent = { [weak self] event in self?.handle(event) }
-        helper.onDisconnect = { [weak self] reason in self?.helperDisconnected(reason) }
+        runner.onEvent = { [weak self] event in self?.handle(event) }
+        runner.onEnded = { [weak self] reason in self?.runEnded(reason) }
         watcher = DiskWatcher { [weak self] in self?.refreshDisks() }
         refreshDisks()
     }
@@ -165,7 +165,7 @@ final class InstallerViewModel {
         showsEraseConfirmation = true
     }
 
-    /// "Erase and Write" in 03: helper, authorization, start.
+    /// "Erase and Write" in 03: the tool as root, after the administrator dialog.
     func confirmErase() {
         guard canStart, let iso, let disk = selectedCandidate else {
             return
@@ -183,57 +183,13 @@ final class InstallerViewModel {
                 useCA2023Bootloaders: useCA2023 && ca2023Available
             )
         )
-        Task { await start(request, disk: disk) }
-    }
-
-    private func start(_ request: InstallerRequest, disk: DiskCandidate) async {
-        do {
-            switch try await helper.connect(log: { [weak self] in self?.append($0) }) {
-            case .enabled:
-                break
-            case .requiresApproval:
-                stage = .idle
-                showsApprovalNotice = true
-                return
-            case .failed(let reason):
-                fail(helperError(String(localized: "The helper could not be reached: \(reason)")))
-                return
-            }
-        } catch {
-            fail(helperError(String(localized: "The helper could not be reached: \(String(describing: error))")))
-            return
-        }
-
         let prompt = String(localized: "SnakeStick wants to erase “\(disk.model)” (\(disk.bsdName)) and make it a Windows installation disk.")
-        let authorization: AdminAuthorization
+        // The administrator dialog comes up now; the stage stays at "Waiting for
+        // authorization…" until the tool's first event.
         do {
-            authorization = try AdminAuthorization.create()
+            try runner.start(request, prompt: prompt)
         } catch {
-            fail(helperError(String(localized: "The helper could not be reached: \(String(describing: error))")))
-            return
-        }
-
-        // The daemon shows the administrator dialog before it answers; the stage stays at
-        // "Waiting for authorization…" until then.
-        do {
-            let reply = try await helper.start(request, authorization: authorization, prompt: prompt)
-            switch reply {
-            case .accepted:
-                if case .starting = stage {
-                    stage = .writing(InstallerProgress(phase: .openISO, fraction: 0))
-                }
-            case .rejected(let reason) where reason == HelperConstants.authorizationCancelled:
-                stage = .idle
-            case .rejected(let reason) where reason == HelperConstants.fullDiskAccessRequired:
-                stage = .idle
-                showsFullDiskAccessNotice = true
-            case .rejected(let reason):
-                fail(helperError(String(localized: "The helper refused the write: \(reason)")))
-            default:
-                fail(helperError(String(localized: "The helper refused the write: \(String(describing: reply))")))
-            }
-        } catch {
-            fail(helperError(String(localized: "The helper could not be reached: \(String(describing: error))")))
+            fail(appError(String(localized: "The write could not be started: \(String(describing: error))")))
         }
     }
 
@@ -248,7 +204,8 @@ final class InstallerViewModel {
 
     /// Closing the main window or quitting. While a job runs this is refused and 05 comes up
     /// instead; after "Stop", the close or quit happens once the job has been cleaned up. Quitting
-    /// must not skip 05: the helper cancels the job when the app disconnects.
+    /// must not skip 05: when the app goes away, the tool gets EOF on its socket, cancels the job
+    /// and cleans up.
     func allowsExit(_ request: ExitRequest) -> Bool {
         guard isBusy else {
             return true
@@ -268,9 +225,7 @@ final class InstallerViewModel {
         if let exitRequest {
             deferExit(exitRequest)
         }
-        Task {
-            try? await helper.cancel()
-        }
+        runner.cancel()
     }
 
     /// Quitting also covers closing the window.
@@ -344,14 +299,32 @@ final class InstallerViewModel {
             } else {
                 stage = .failed(error)
             }
+            // P6: TCC refusing the root tool shows up as EPERM. Whether it does, and whether Full
+            // Disk Access for the app helps, has not been tried yet (U1).
+            if error.errno == EPERM {
+                showsFullDiskAccessNotice = true
+            }
             refreshDisks()
         }
     }
 
-    private func helperDisconnected(_ reason: String) {
-        append("helper connection ended: \(reason)")
-        if isBusy {
-            fail(helperError(String(localized: "The connection to the helper was lost.")))
+    private func runEnded(_ reason: InstallerRunner.EndReason) {
+        switch reason {
+        case .authCancelled:
+            append("the administrator authorization was cancelled")
+            if isBusy {
+                stage = .idle
+            }
+        case .lost(let detail):
+            append("the tool ended without a result: \(detail)")
+            if isBusy {
+                fail(appError(String(localized: "The write stopped without a result.")))
+            }
+        case .osascriptFailed(let detail):
+            append("osascript failed: \(detail)")
+            if isBusy {
+                fail(appError(String(localized: "The write could not be started as an administrator: \(detail)")))
+            }
         }
     }
 
@@ -361,7 +334,7 @@ final class InstallerViewModel {
     }
 
     /// An error raised by the app itself; its message is already localized (see `UIText.errorBody`).
-    private func helperError(_ message: String) -> InstallerError {
+    private func appError(_ message: String) -> InstallerError {
         InstallerError(phase: .prepareTarget, kind: .other, message: message, underlying: UIText.appOrigin)
     }
 

@@ -63,19 +63,13 @@ struct ContentView: View {
         } message: {
             Text("macOS keeps the helper that writes the disk away from removable disks and your folders until SnakeStick has Full Disk Access. Add SnakeStick in System Settings > Privacy & Security > Full Disk Access, then try again.")
         }
-        .alert("Allow the SnakeStick helper", isPresented: $model.showsApprovalNotice) {
-            Button("Open System Settings") { HelperClient.openLoginItems() }
-                .keyboardShortcut(.defaultAction)
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("SnakeStick writes disks with a helper that runs as root. Allow it in System Settings > General > Login Items, then try again.")
-        }
     }
 
     static let isoType = UTType("public.iso-image") ?? UTType(filenameExtension: "iso") ?? .diskImage
 
     /// Opens Privacy & Security > Full Disk Access and shows the app in the Finder, ready to be
-    /// dragged into the list. Access granted to the app covers the helper inside its bundle.
+    /// dragged into the list. Whether access granted to the app covers the tool it runs as root
+    /// through osascript has not been tried yet (U1 of stage 20).
     static func openFullDiskAccessSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
             NSWorkspace.shared.open(url)

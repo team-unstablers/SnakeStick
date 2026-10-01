@@ -119,11 +119,6 @@
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick에 전체 디스크 접근 권한이 없으면 macOS가 디스크를 쓰는 도우미의 이동식 디스크와 사용자 폴더 접근을 막습니다. 시스템 설정 > 개인정보 보호 및 보안 > 전체 디스크 접근 권한에 SnakeStick을 추가한 뒤 다시 시도하세요." } }
       }
     },
-    "Allow the SnakeStick helper" : {
-      "localizations" : {
-        "ko" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick 도우미를 허용하세요" } }
-      }
-    },
     "An I/O error occurred (%@). The stick may have been removed or damaged." : {
       "localizations" : {
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "입출력 오류가 났습니다 (%@). 스틱이 분리되었거나 손상되었을 수 있습니다." } }
@@ -347,11 +342,6 @@
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick이 “%@”(%@)을 지우고 Windows 설치 디스크로 만들려고 합니다." } }
       }
     },
-    "SnakeStick writes disks with a helper that runs as root. Allow it in System Settings > General > Login Items, then try again." : {
-      "localizations" : {
-        "ko" : { "stringUnit" : { "state" : "translated", "value" : "SnakeStick은 root로 실행되는 도우미로 디스크를 씁니다. 시스템 설정 > 일반 > 로그인 항목에서 허용한 뒤 다시 시도하세요." } }
-      }
-    },
     "Source ISO" : {
       "localizations" : {
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "원본 ISO" } }
@@ -402,21 +392,6 @@
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "ISO 파일을 읽을 수 없습니다." } }
       }
     },
-    "The connection to the helper was lost." : {
-      "localizations" : {
-        "ko" : { "stringUnit" : { "state" : "translated", "value" : "도우미와의 연결이 끊어졌습니다." } }
-      }
-    },
-    "The helper could not be reached: %@" : {
-      "localizations" : {
-        "ko" : { "stringUnit" : { "state" : "translated", "value" : "도우미에 연결할 수 없습니다: %@" } }
-      }
-    },
-    "The helper refused the write: %@" : {
-      "localizations" : {
-        "ko" : { "stringUnit" : { "state" : "translated", "value" : "도우미가 쓰기를 거부했습니다: %@" } }
-      }
-    },
     "The stick cannot be booted now." : {
       "localizations" : {
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "스틱은 지금 부팅할 수 없는 상태입니다." } }
@@ -440,6 +415,21 @@
     "The volume label cannot be used on NTFS: at most 32 characters, none of \"*/:<>?\\|, and no space or dot at the end." : {
       "localizations" : {
         "ko" : { "stringUnit" : { "state" : "translated", "value" : "이 볼륨 레이블은 NTFS에서 쓸 수 없습니다. 32자 이하여야 하고, \"*/:<>?\\|를 포함할 수 없으며, 공백이나 마침표로 끝날 수 없습니다." } }
+      }
+    },
+    "The write could not be started as an administrator: %@" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "관리자 권한으로 쓰기를 시작할 수 없습니다: %@" } }
+      }
+    },
+    "The write could not be started: %@" : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "쓰기를 시작할 수 없습니다: %@" } }
+      }
+    },
+    "The write stopped without a result." : {
+      "localizations" : {
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "쓰기가 결과 없이 멈췄습니다." } }
       }
     },
     "This is not a Windows installation ISO." : {
