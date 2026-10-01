@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> · <b>한국어</b>
+  <a href="README.md">English</a> · <b>한국어</b> · <a href="README.ja.md">日本語</a> · <a href="README.zh-Hans.md">简体中文</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.pt-BR.md">Português (Brasil)</a> · <a href="README.ru.md">Русский</a>
 </p>
 
 <p align="center">
@@ -39,7 +39,8 @@
   않고, 쓰기 직전에 대상을 한 번 더 확인하며, 직접 확인하기 전에는 아무것도 지우지 않습니다.
 - 🧹 **Mac 부스러기가 남지 않습니다.** Windows 파티션은 마운트하지 않고 쓰기 때문에 `.DS_Store`, `._`, `.fseventsd` 같은
   파일이 스틱에 생기지 않습니다.
-- 🍎 **Mac 네이티브 앱입니다.** Swift와 SwiftUI로 만들었고 한국어와 영어를 지원합니다. GPLv3 자유 소프트웨어입니다.
+- 🍎 **Mac 네이티브 앱입니다.** Swift와 SwiftUI로 만들었고 한국어, 영어, 일본어, 중국어(간체·번체), 독일어,
+  프랑스어, 스페인어, 포르투갈어(브라질), 러시아어를 지원합니다. GPLv3 자유 소프트웨어입니다.
 
 ## 📥 다운로드
 
