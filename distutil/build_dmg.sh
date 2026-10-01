@@ -26,18 +26,18 @@ APP_NAME="SnakeStick"
 TEAM_ID="XHA76UVA95"
 
 APP_BUNDLE_ID="pl.unstabler.aislop.SnakeStick"
-HELPER_NAME="SnakeStickHelper"
-HELPER_BUNDLE_ID="pl.unstabler.aislop.SnakeStick.helper"
-HELPER_PLIST="Contents/Library/LaunchDaemons/$HELPER_BUNDLE_ID.plist"
+# The command line tool the app runs as root through osascript (InstallerRunner.swift), and the
+# code signing identifier Xcode gives it (the SwiftPM product name).
+CLI_PATH_IN_BUNDLE="Contents/Helpers/snakestick"
+CLI_IDENTIFIER="snakestick"
 
 RESOURCE_BUNDLE="Contents/Resources/SnakeStickCore_SnakeStickCore.bundle"
 UEFI_NTFS_SOURCE="$SRCROOT/SnakeStickCore/Sources/SnakeStickCore/Resources/UEFI-NTFS"
 
 APP_CERT_ID="Developer ID Application: team unstablers Inc. ($TEAM_ID)"
 
-# A Developer ID Application leaf issued to our team. The app and the daemon accept each other
-# only when both are signed by the same team (HelperClient.swift, SnakeStickHelper/main.swift), so
-# both executables are checked against this.
+# A Developer ID Application leaf issued to our team. Notarization needs every executable in the
+# bundle signed with it and the hardened runtime, so the app and the bundled tool are both checked.
 DEVELOPER_ID_REQUIREMENT="anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = \"$TEAM_ID\""
 
 # A profile made with 'xcrun notarytool store-credentials'. The same one COSMICOLOR and Noctiluca use.
@@ -121,26 +121,6 @@ check_signature() {
         || die "$path is not signed with the hardened runtime"
 }
 
-# The daemon is a command line tool; its Info.plist lives in its __TEXT,__info_plist section
-# (CREATE_INFOPLIST_SECTION_IN_BINARY). segedit reads only thin binaries.
-extract_embedded_info_plist() {
-    local binary="$1"
-    local output="$2"
-    local thin="$output.thin"
-    local archs
-
-    read -r -a archs <<< "$(lipo -archs "$binary")"
-    if [[ ${#archs[@]} -gt 1 ]]; then
-        lipo "$binary" -thin "${archs[0]}" -output "$thin"
-    else
-        cp "$binary" "$thin"
-    fi
-
-    rm -f "$output"
-    segedit "$thin" -extract __TEXT __info_plist "$output"
-    rm -f "$thin"
-}
-
 plist_value() {
     /usr/libexec/PlistBuddy -c "Print :$2" "$1"
 }
@@ -202,8 +182,8 @@ mkdir -p "$INTERMEDIATE_DIR" "$EXPORT_PATH" "$DIST_DIR"
 # The hardened runtime comes from the project (ENABLE_HARDENED_RUNTIME). Notarization requires it,
 # and it is not overridden here: the release must be signed the way an Xcode build is.
 #
-# The private DerivedData also keeps the archive away from the shared Debug products, whose helper
-# binary may be the one a running daemon was started from.
+# The private DerivedData also keeps the archive away from the shared Debug products, whose bundled
+# tool may be the one a running write was started from.
 # ==============================================================================
 
 step "Archive"
@@ -220,8 +200,9 @@ run_xcodebuild "$INTERMEDIATE_DIR/archive.log" \
 # ==============================================================================
 # 2. Export
 #
-# Neither the app nor the daemon has entitlements that need a provisioning profile. Export re-signs
-# the daemon in Contents/MacOS with the Developer ID as well (CodeSignOnCopy on "Embed Helper").
+# Neither the app nor the tool has entitlements that need a provisioning profile. Export re-signs
+# the tool in Contents/Helpers and the package frameworks in Contents/Frameworks with the
+# Developer ID as well (CodeSignOnCopy on "Embed Command Line Tool").
 # ==============================================================================
 
 step "Export"
@@ -274,28 +255,25 @@ echo "  output        $FINAL_DMG"
 
 step "Bundle check"
 
-HELPER_PATH="$APP_PATH/Contents/MacOS/$HELPER_NAME"
-[[ -x "$HELPER_PATH" ]] || die "the daemon is missing: $HELPER_PATH"
-
-# SMAppService starts the program the plist names, relative to the app bundle.
-[[ -f "$APP_PATH/$HELPER_PLIST" ]] || die "the launchd plist is missing: $HELPER_PLIST"
-BUNDLE_PROGRAM="$(plist_value "$APP_PATH/$HELPER_PLIST" BundleProgram)"
-[[ -x "$APP_PATH/$BUNDLE_PROGRAM" ]] \
-    || die "the launchd plist's BundleProgram does not exist in the bundle: $BUNDLE_PROGRAM"
-echo "  daemon        $BUNDLE_PROGRAM"
+CLI_PATH="$APP_PATH/$CLI_PATH_IN_BUNDLE"
+[[ -x "$CLI_PATH" ]] || die "the command line tool is missing: $CLI_PATH_IN_BUNDLE"
+echo "  tool          $CLI_PATH_IN_BUNDLE"
 
 check_signature "$APP_PATH" "$APP_BUNDLE_ID"
-check_signature "$HELPER_PATH" "$HELPER_BUNDLE_ID"
-echo "  signature     Developer ID ($TEAM_ID), hardened runtime, app and daemon"
+check_signature "$CLI_PATH" "$CLI_IDENTIFIER"
+echo "  signature     Developer ID ($TEAM_ID), hardened runtime, app and tool"
 
-# The app reconnects when the daemon reports a version other than its own (HelperClient
-# .checkVersion), so a version bumped in one target only would leave the app unable to write.
-extract_embedded_info_plist "$HELPER_PATH" "$INTERMEDIATE_DIR/$HELPER_NAME-Info.plist"
-HELPER_VERSION="$(plist_value "$INTERMEDIATE_DIR/$HELPER_NAME-Info.plist" CFBundleShortVersionString)"
-HELPER_BUILD="$(plist_value "$INTERMEDIATE_DIR/$HELPER_NAME-Info.plist" CFBundleVersion)"
-[[ "$HELPER_VERSION" == "$VERSION" && "$HELPER_BUILD" == "$BUILD" ]] \
-    || die "the daemon is version $HELPER_VERSION ($HELPER_BUILD), the app $VERSION ($BUILD); set MARKETING_VERSION and CURRENT_PROJECT_VERSION on both targets"
-echo "  daemon version $HELPER_VERSION ($HELPER_BUILD)"
+# Linked into the app and the tool, the packages are frameworks in Contents/Frameworks. The tool
+# finds them through @executable_path/../Frameworks (SnakeStickCore/Package.swift); Xcode also
+# gives it an rpath into the build directory, which hides a missing framework on this machine.
+CLI_RPATHS="$(otool -l "$CLI_PATH" | awk '$1 == "path" { print $2 }')"
+grep -qx '@executable_path/../Frameworks' <<< "$CLI_RPATHS" \
+    || die "the tool has no @executable_path/../Frameworks rpath: $(echo $CLI_RPATHS)"
+while IFS= read -r library; do
+    [[ -e "$APP_PATH/Contents/Frameworks/${library#@rpath/}" ]] \
+        || die "the tool links $library, which is not in Contents/Frameworks"
+done < <(otool -L "$CLI_PATH" | awk 'NR > 1 && $1 ~ /^@rpath\// { print $1 }')
+echo "  tool links    Contents/Frameworks only"
 
 # The boot loaders are Microsoft-signed binaries; the bundled copies must be the checked-in ones.
 UEFI_NTFS_BUNDLED="$APP_PATH/$RESOURCE_BUNDLE/Contents/Resources/UEFI-NTFS"
@@ -304,7 +282,7 @@ diff -r "$UEFI_NTFS_SOURCE" "$UEFI_NTFS_BUNDLED" >/dev/null \
     || die "the bundled UEFI:NTFS files differ from $UEFI_NTFS_SOURCE"
 echo "  UEFI:NTFS     same as the source"
 
-echo "  architectures app: $(lipo -archs "$APP_PATH/Contents/MacOS/$APP_NAME"), daemon: $(lipo -archs "$HELPER_PATH")"
+echo "  architectures app: $(lipo -archs "$APP_PATH/Contents/MacOS/$APP_NAME"), tool: $(lipo -archs "$CLI_PATH")"
 
 # ==============================================================================
 # 4. App notarization
