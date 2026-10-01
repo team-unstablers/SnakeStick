@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/team-unstablers/SnakeStick/releases/latest"><img alt="下载最新版本" src="https://img.shields.io/badge/Download-Latest%20release-B3122E?style=for-the-badge&logo=github&logoColor=white"></a>
-  <img alt="macOS 26.6 或更高版本" src="https://img.shields.io/badge/macOS-26.6%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
+  <img alt="macOS 14 或更高版本" src="https://img.shields.io/badge/macOS-14%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
   <img alt="Windows 10 和 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E0B10?style=for-the-badge">
   <a href="COPYING"><img alt="许可证：GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-0E0B10?style=for-the-badge"></a>
 </p>
@@ -44,7 +44,7 @@
 
 | | |
 |---|---|
-| **Mac** | macOS Tahoe 26.6 或更高版本，以及管理员密码 |
+| **Mac** | macOS Sonoma 14 或更高版本，以及管理员密码 |
 | **Windows ISO** | Windows 10 或 11 安装 ISO，例如可从 Microsoft 的 [Windows 11](https://www.microsoft.com/zh-cn/software-download/windows11) 或 [Windows 10](https://www.microsoft.com/zh-cn/software-download/windows10) 下载页面获取 |
 | **U 盘** | 容量需足以容纳 ISO；容量太小的 U 盘会显示为灰色。对于当前的 Windows 11 ISO，16 GB 是稳妥的容量。 |
 | **目标 PC** | 以 UEFI 模式启动的 PC。不支持传统 BIOS (CSM) 启动。 |
@@ -52,14 +52,11 @@
 > [!CAUTION]
 > 写入会**抹掉所选 U 盘上的所有内容**。请先将需要保留的内容拷贝出来。
 
-## 🔑 首次启动：两项一次性权限
+## 🔑 权限
 
-SnakeStick 通过一个以管理员权限在后台运行的小型辅助程序来写入 U 盘，因此 App 本身无需以 root 身份运行。macOS 会要求你批准一次这个辅助程序：
+SnakeStick 通过 App 内的一个小型工具来写入 U 盘。这个工具只在写入期间以管理员权限运行，因此 App 本身无需以 root 身份运行。每次写入 U 盘时，macOS 都会要求你输入管理员密码。
 
-1. **允许辅助程序**。第一次点按**开始写入**时，macOS 会要求你允许 SnakeStick 的辅助程序。在**系统设置 › 通用 › 登录项与扩展**中打开 **SnakeStick**，然后重试。
-2. **授予完全磁盘访问权限**。除非 App 拥有完全磁盘访问权限，否则 macOS 会阻止后台辅助程序访问可移除磁盘以及“**下载**”等文件夹。在**系统设置 › 隐私与安全性 › 完全磁盘访问权限**中添加 **SnakeStick**。缺少此权限时，SnakeStick 会提示你，并提供一个用于打开相应设置页面的按钮。
-
-此后，每次写入 U 盘时，SnakeStick 只会要求你输入一次管理员密码。
+**完全磁盘访问权限**。除非 App 拥有完全磁盘访问权限，否则 macOS 会阻止写入工具访问可移除磁盘以及“**下载**”等文件夹。在**系统设置 › 隐私与安全性 › 完全磁盘访问权限**中添加 **SnakeStick**。缺少此权限时，SnakeStick 会提示你，并提供一个用于打开相应设置页面的按钮。
 
 ## 🚀 制作 U 盘
 
@@ -89,7 +86,7 @@ SnakeStick 通过一个以管理员权限在后台运行的小型辅助程序来
 <summary><b>为什么需要完全磁盘访问权限？</b></summary>
 <br>
 
-SnakeStick 中负责写入 U 盘的部分是一个后台辅助程序（launchd 守护进程）。除非其所属的 App 拥有完全磁盘访问权限，否则 macOS 不允许这类辅助程序打开可移除磁盘，也不允许其读取“下载”等文件夹中的 ISO，而且辅助程序也无法申请范围更小的权限。你只需将此权限授予 SnakeStick App，它就会作用到 App 内的辅助程序。
+SnakeStick 中负责写入 U 盘的部分是 App 内的一个独立工具，每次写入时都会以管理员权限启动。除非其所属的 App 拥有完全磁盘访问权限，否则 macOS 不允许这个工具打开可移除磁盘，也不允许其读取“下载”等文件夹中的 ISO，而且该工具也无法申请范围更小的权限。你只需将此权限授予 SnakeStick App，它就会作用到 App 内的工具。
 
 </details>
 

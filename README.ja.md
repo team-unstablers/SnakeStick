@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/team-unstablers/SnakeStick/releases/latest"><img alt="最新リリースをダウンロード" src="https://img.shields.io/badge/Download-Latest%20release-B3122E?style=for-the-badge&logo=github&logoColor=white"></a>
-  <img alt="macOS 26.6 以降" src="https://img.shields.io/badge/macOS-26.6%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
+  <img alt="macOS 14 以降" src="https://img.shields.io/badge/macOS-14%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
   <img alt="Windows 10・11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E0B10?style=for-the-badge">
   <a href="COPYING"><img alt="ライセンス: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-0E0B10?style=for-the-badge"></a>
 </p>
@@ -44,7 +44,7 @@
 
 | | |
 |---|---|
-| **Mac** | macOS Tahoe 26.6 以降と、管理者パスワード |
+| **Mac** | macOS Sonoma 14 以降と、管理者パスワード |
 | **Windows ISO** | Windows 10 または 11 のインストール ISO。Microsoft の [Windows 11](https://www.microsoft.com/ja-jp/software-download/windows11)・[Windows 10](https://www.microsoft.com/ja-jp/software-download/windows10) ダウンロードページなどから入手できます。 |
 | **USB メモリ** | ISO が収まる容量が必要です。容量が足りない USB メモリはグレー表示になります。現在の Windows 11 ISO なら 16 GB あれば安心です。 |
 | **インストール先の PC** | UEFI モードで起動する PC。レガシー BIOS（CSM）での起動には対応していません。 |
@@ -52,14 +52,11 @@
 > [!CAUTION]
 > 書き込むと、選択した USB メモリの**内容はすべて消去されます**。残しておきたいファイルは、先に別の場所へコピーしておいてください。
 
-## 🔑 初回起動時: 一度だけ必要な 2 つの許可
+## 🔑 権限
 
-SnakeStick は、管理者権限でバックグラウンド動作する小さなヘルパーを通じて USB メモリに書き込みます。そのため、アプリ本体を root で実行する必要はありません。このヘルパーを macOS で一度だけ許可してください。
+SnakeStick は、アプリに含まれる小さなツールで USB メモリに書き込みます。このツールは書き込む間だけ管理者権限で動作するため、アプリ本体を root で実行する必要はありません。USB メモリに書き込むたびに、macOS から管理者パスワードを求められます。
 
-1. **ヘルパーを許可する。** 初めて**書き込み開始**を押すと、SnakeStick のヘルパーを許可するよう macOS から求められます。**システム設定 › 一般 › ログイン項目と機能拡張**で **SnakeStick** をオンにしてから、もう一度お試しください。
-2. **フルディスクアクセスを許可する。** アプリにフルディスクアクセスがないと、macOS はバックグラウンドのヘルパーがリムーバブルディスクや**ダウンロード**などのフォルダにアクセスすることを禁止します。**システム設定 › プライバシーとセキュリティ › フルディスクアクセス**に **SnakeStick** を追加してください。許可されていない場合は SnakeStick が知らせてくれ、該当する設定画面を開くボタンも表示されます。
-
-以降は、USB メモリに書き込むたびに管理者パスワードを 1 回だけ入力します。
+**フルディスクアクセス。** アプリにフルディスクアクセスがないと、macOS は書き込み用のツールがリムーバブルディスクや**ダウンロード**などのフォルダにアクセスすることを禁止します。**システム設定 › プライバシーとセキュリティ › フルディスクアクセス**に **SnakeStick** を追加してください。許可されていない場合は SnakeStick が知らせてくれ、該当する設定画面を開くボタンも表示されます。
 
 ## 🚀 USB メモリを作成する
 
@@ -89,7 +86,7 @@ Secure Boot を有効にした状態で USB メモリから起動できない場
 <summary><b>なぜフルディスクアクセスが必要なのですか？</b></summary>
 <br>
 
-SnakeStick で USB メモリに書き込む部分は、バックグラウンドのヘルパー（launchd デーモン）です。macOS では、ヘルパーが属するアプリにフルディスクアクセスがないと、ヘルパーはリムーバブルディスクを開くことも、ダウンロードなどのフォルダにある ISO を読み込むこともできません。また、ヘルパーが要求できる、これより範囲の狭い権限はありません。権限は SnakeStick アプリに付与し、それがアプリ内のヘルパーにも適用されます。
+SnakeStick で USB メモリに書き込む部分は、アプリに含まれる別のツールで、書き込むたびに管理者権限で起動されます。macOS では、このツールが属するアプリにフルディスクアクセスがないと、ツールはリムーバブルディスクを開くことも、ダウンロードなどのフォルダにある ISO を読み込むこともできません。また、ツールが要求できる、これより範囲の狭い権限はありません。権限は SnakeStick アプリに付与し、それがアプリ内のツールにも適用されます。
 
 </details>
 

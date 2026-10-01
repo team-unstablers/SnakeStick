@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/team-unstablers/SnakeStick/releases/latest"><img alt="Neueste Version herunterladen" src="https://img.shields.io/badge/Download-Latest%20release-B3122E?style=for-the-badge&logo=github&logoColor=white"></a>
-  <img alt="macOS 26.6 oder neuer" src="https://img.shields.io/badge/macOS-26.6%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
+  <img alt="macOS 14 oder neuer" src="https://img.shields.io/badge/macOS-14%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
   <img alt="Windows 10 und 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E0B10?style=for-the-badge">
   <a href="COPYING"><img alt="Lizenz: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-0E0B10?style=for-the-badge"></a>
 </p>
@@ -57,7 +57,7 @@ und bewege **SnakeStick** dann in deinen Ordner **Programme**. Die App ist signi
 
 | | |
 |---|---|
-| **Mac** | macOS Tahoe 26.6 oder neuer und ein Administratorpasswort |
+| **Mac** | macOS Sonoma 14 oder neuer und ein Administratorpasswort |
 | **Windows-ISO** | Eine Installations-ISO von Windows 10 oder 11, zum Beispiel von Microsofts Downloadseite für [Windows 11](https://www.microsoft.com/de-de/software-download/windows11) oder [Windows 10](https://www.microsoft.com/de-de/software-download/windows10) |
 | **USB-Stick** | Groß genug für die ISO; zu kleine Sticks sind ausgegraut. Für aktuelle Windows-11-ISOs sind 16 GB eine sichere Größe. |
 | **Ziel-PC** | Ein PC, der im UEFI-Modus startet. Das Starten über Legacy-BIOS (CSM) wird nicht unterstützt. |
@@ -66,20 +66,16 @@ und bewege **SnakeStick** dann in deinen Ordner **Programme**. Die App ist signi
 > Beim Schreiben wird **alles gelöscht**, was sich auf dem ausgewählten USB-Stick befindet. Sichere vorher alles, was du
 > behalten möchtest.
 
-## 🔑 Erster Start: zwei einmalige Berechtigungen
+## 🔑 Berechtigungen
 
-SnakeStick beschreibt den Stick über ein kleines Hilfsprogramm, das mit Administratorrechten im Hintergrund läuft, damit
-die App selbst nie als root laufen muss. macOS bittet dich einmalig, dieses Hilfsprogramm zu genehmigen:
+SnakeStick beschreibt den Stick mit einem kleinen Werkzeug in der App, das nur während des Schreibens mit
+Administratorrechten läuft, damit die App selbst nie als root laufen muss. Bei jedem Schreibvorgang fragt macOS nach
+deinem Administratorpasswort.
 
-1. **Erlaube das Hilfsprogramm.** Wenn du zum ersten Mal auf **Schreiben starten** klickst, bittet dich macOS, das
-   Hilfsprogramm von SnakeStick zu erlauben. Aktiviere **SnakeStick** unter **Systemeinstellungen › Allgemein ›
-   Anmeldeobjekte & Erweiterungen** und versuche es dann erneut.
-2. **Erteile den Festplattenvollzugriff.** Solange die App keinen Festplattenvollzugriff hat, sperrt macOS Hilfsprogramme
-   im Hintergrund von Wechselmedien und von Ordnern wie **Downloads** aus. Füge **SnakeStick** unter
-   **Systemeinstellungen › Datenschutz & Sicherheit › Festplattenvollzugriff** hinzu. SnakeStick weist dich darauf hin,
-   wenn der Zugriff fehlt, und bietet eine Taste, die die richtige Seite öffnet.
-
-Danach fragt SnakeStick bei jedem Schreibvorgang einmal nach deinem Administratorpasswort.
+**Festplattenvollzugriff.** Solange die App keinen Festplattenvollzugriff hat, sperrt macOS das Schreibwerkzeug von
+Wechselmedien und von Ordnern wie **Downloads** aus. Füge **SnakeStick** unter **Systemeinstellungen › Datenschutz &
+Sicherheit › Festplattenvollzugriff** hinzu. SnakeStick weist dich darauf hin, wenn der Zugriff fehlt, und bietet eine
+Taste, die die richtige Seite öffnet.
 
 ## 🚀 Einen Stick erstellen
 
@@ -119,11 +115,11 @@ Dauer der Installation deaktivieren; schalte es danach wieder ein.
 <summary><b>Warum braucht SnakeStick Festplattenvollzugriff?</b></summary>
 <br>
 
-Der Teil von SnakeStick, der den Stick beschreibt, ist ein Hilfsprogramm im Hintergrund (ein launchd-Daemon). macOS
-erlaubt solchen Hilfsprogrammen nicht, Wechselmedien zu öffnen oder eine ISO in Ordnern wie „Downloads“ zu lesen,
-solange die App, zu der sie gehören, keinen Festplattenvollzugriff hat – und eine engere Berechtigung, die ein
-Hilfsprogramm anfordern könnte, gibt es nicht. Du erteilst den Zugriff der SnakeStick-App, und er gilt damit auch für das
-Hilfsprogramm in der App.
+Der Teil von SnakeStick, der den Stick beschreibt, ist ein eigenes Werkzeug in der App, das bei jedem Schreibvorgang mit
+Administratorrechten gestartet wird. macOS erlaubt ihm nicht, Wechselmedien zu öffnen oder eine ISO in Ordnern wie
+„Downloads“ zu lesen, solange die App, zu der es gehört, keinen Festplattenvollzugriff hat – und eine engere
+Berechtigung, die es anfordern könnte, gibt es nicht. Du erteilst den Zugriff der SnakeStick-App, und er gilt damit auch
+für das Werkzeug in der App.
 
 </details>
 

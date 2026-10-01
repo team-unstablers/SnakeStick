@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/team-unstablers/SnakeStick/releases/latest"><img alt="Télécharger la dernière version" src="https://img.shields.io/badge/Download-Latest%20release-B3122E?style=for-the-badge&logo=github&logoColor=white"></a>
-  <img alt="macOS 26.6 ou ultérieur" src="https://img.shields.io/badge/macOS-26.6%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
+  <img alt="macOS 14 ou ultérieur" src="https://img.shields.io/badge/macOS-14%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
   <img alt="Windows 10 et 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E0B10?style=for-the-badge">
   <a href="COPYING"><img alt="Licence : GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-0E0B10?style=for-the-badge"></a>
 </p>
@@ -51,7 +51,7 @@ puis déplacez **SnakeStick** dans votre dossier **Applications**. L’app est s
 
 | | |
 |---|---|
-| **Mac** | macOS Tahoe 26.6 ou ultérieur, et le mot de passe d’un administrateur |
+| **Mac** | macOS Sonoma 14 ou ultérieur, et le mot de passe d’un administrateur |
 | **ISO Windows** | Une ISO d’installation de Windows 10 ou 11, par exemple depuis la page de téléchargement de [Windows 11](https://www.microsoft.com/fr-fr/software-download/windows11) ou de [Windows 10](https://www.microsoft.com/fr-fr/software-download/windows10) de Microsoft |
 | **Clé USB** | Assez grande pour l’ISO ; les clés trop petites sont grisées. 16 Go suffisent largement pour les ISO actuelles de Windows 11. |
 | **PC cible** | Un PC qui démarre en mode UEFI. Le démarrage en BIOS hérité (CSM) n’est pas pris en charge. |
@@ -59,19 +59,16 @@ puis déplacez **SnakeStick** dans votre dossier **Applications**. L’app est s
 > [!CAUTION]
 > L’écriture **efface tout** le contenu de la clé USB sélectionnée. Copiez d’abord ailleurs tout ce que vous voulez conserver.
 
-## 🔑 Premier lancement : deux autorisations à donner une seule fois
+## 🔑 Autorisations
 
-SnakeStick écrit sur la clé par l’intermédiaire d’un petit outil d’assistance qui s’exécute en arrière-plan avec les droits
-d’administrateur, si bien que l’app elle-même n’a jamais besoin de s’exécuter en root. macOS vous demande d’approuver cet outil une seule fois :
+SnakeStick écrit sur la clé avec un petit outil intégré à l’app, qui ne s’exécute avec les droits d’administrateur que
+pendant l’écriture, si bien que l’app elle-même n’a jamais besoin de s’exécuter en root. À chaque écriture d’une clé,
+macOS vous demande votre mot de passe administrateur.
 
-1. **Autorisez l’outil d’assistance.** La première fois que vous cliquez sur **Lancer l’écriture**, macOS vous demande d’autoriser l’outil
-   d’assistance de SnakeStick. Activez **SnakeStick** dans **Réglages Système › Général › Ouverture et extensions**, puis réessayez.
-2. **Accordez l’accès complet au disque.** macOS empêche les outils d’assistance en arrière-plan d’accéder aux disques amovibles et à des
-   dossiers comme **Téléchargements**, sauf si l’app dispose de l’accès complet au disque. Ajoutez **SnakeStick** dans
-   **Réglages Système › Confidentialité et sécurité › Accès complet au disque**. SnakeStick vous prévient quand cette autorisation manque
-   et propose un bouton qui ouvre la bonne page.
-
-Ensuite, SnakeStick vous demande votre mot de passe administrateur une fois à chaque écriture d’une clé.
+**Accès complet au disque.** macOS empêche l’outil d’écriture d’accéder aux disques amovibles et à des dossiers comme
+**Téléchargements**, sauf si l’app dispose de l’accès complet au disque. Ajoutez **SnakeStick** dans
+**Réglages Système › Confidentialité et sécurité › Accès complet au disque**. SnakeStick vous prévient quand cette autorisation manque
+et propose un bouton qui ouvre la bonne page.
 
 ## 🚀 Créer une clé
 
@@ -109,10 +106,10 @@ réactivez-le ensuite.
 <summary><b>Pourquoi a-t-il besoin de l’accès complet au disque ?</b></summary>
 <br>
 
-La partie de SnakeStick qui écrit sur la clé est un outil d’assistance en arrière-plan (un daemon launchd). macOS ne permet pas à ces
-outils d’ouvrir des disques amovibles, ni de lire une ISO dans des dossiers comme Téléchargements, sauf si l’app à laquelle ils
-appartiennent dispose de l’accès complet au disque, et il n’existe pas d’autorisation plus restreinte qu’un outil d’assistance puisse
-demander. Vous l’accordez à l’app SnakeStick, et elle s’étend à l’outil d’assistance qu’elle contient.
+La partie de SnakeStick qui écrit sur la clé est un outil distinct intégré à l’app, lancé avec les droits d’administrateur à
+chaque écriture. macOS ne lui permet pas d’ouvrir des disques amovibles, ni de lire une ISO dans des dossiers comme Téléchargements,
+sauf si l’app à laquelle il appartient dispose de l’accès complet au disque, et il n’existe pas d’autorisation plus restreinte qu’il
+puisse demander. Vous l’accordez à l’app SnakeStick, et elle s’étend à l’outil qu’elle contient.
 
 </details>
 

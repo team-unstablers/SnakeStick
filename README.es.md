@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/team-unstablers/SnakeStick/releases/latest"><img alt="Descargar la última versión" src="https://img.shields.io/badge/Download-Latest%20release-B3122E?style=for-the-badge&logo=github&logoColor=white"></a>
-  <img alt="macOS 26.6 o posterior" src="https://img.shields.io/badge/macOS-26.6%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
+  <img alt="macOS 14 o posterior" src="https://img.shields.io/badge/macOS-14%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
   <img alt="Windows 10 y 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E0B10?style=for-the-badge">
   <a href="COPYING"><img alt="Licencia: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-0E0B10?style=for-the-badge"></a>
 </p>
@@ -51,7 +51,7 @@ y mueve **SnakeStick** a tu carpeta **Aplicaciones**. La app está firmada y not
 
 | | |
 |---|---|
-| **Mac** | macOS Tahoe 26.6 o posterior, y la contraseña de un administrador |
+| **Mac** | macOS Sonoma 14 o posterior, y la contraseña de un administrador |
 | **ISO de Windows** | Una ISO de instalación de Windows 10 u 11, por ejemplo de la página de descarga de [Windows 11](https://www.microsoft.com/es-es/software-download/windows11) o de [Windows 10](https://www.microsoft.com/es-es/software-download/windows10) de Microsoft |
 | **Memoria USB** | Con capacidad suficiente para la ISO; las memorias demasiado pequeñas aparecen atenuadas. 16 GB es un tamaño seguro para las ISO actuales de Windows 11. |
 | **PC de destino** | Un PC que arranque en modo UEFI. No se admite el arranque con BIOS heredada (CSM). |
@@ -59,18 +59,15 @@ y mueve **SnakeStick** a tu carpeta **Aplicaciones**. La app está firmada y not
 > [!CAUTION]
 > La escritura **borra todo** el contenido de la memoria USB seleccionada. Copia antes lo que quieras conservar.
 
-## 🔑 Primer inicio: dos permisos que se conceden una sola vez
+## 🔑 Permisos
 
-SnakeStick escribe en la memoria a través de una pequeña herramienta auxiliar que se ejecuta en segundo plano con privilegios
-de administrador, así que la propia app nunca tiene que ejecutarse como root. macOS te pide que apruebes esa herramienta una vez:
+SnakeStick escribe en la memoria con una pequeña herramienta incluida en la app, que solo se ejecuta con privilegios de
+administrador mientras escribe, así que la propia app nunca tiene que ejecutarse como root. Cada vez que escribes una
+memoria, macOS te pide la contraseña de administrador.
 
-1. **Permite la herramienta auxiliar.** La primera vez que hagas clic en **Empezar a escribir**, macOS te pedirá que permitas la
-   herramienta auxiliar de SnakeStick. Activa **SnakeStick** en **Ajustes del Sistema › General › Ítems de inicio y extensiones** y vuelve a intentarlo.
-2. **Concede el acceso total al disco.** macOS impide que las herramientas en segundo plano accedan a los discos extraíbles y a
-   carpetas como **Descargas** a menos que la app tenga acceso total al disco. Añade **SnakeStick** en **Ajustes del Sistema ›
-   Privacidad y seguridad › Acceso total al disco**. SnakeStick te avisa si falta este permiso y tiene un botón que abre la página correcta.
-
-A partir de entonces, SnakeStick te pide la contraseña de administrador una vez cada vez que escribes una memoria.
+**Acceso total al disco.** macOS impide que la herramienta de escritura acceda a los discos extraíbles y a carpetas como
+**Descargas** a menos que la app tenga acceso total al disco. Añade **SnakeStick** en **Ajustes del Sistema ›
+Privacidad y seguridad › Acceso total al disco**. SnakeStick te avisa si falta este permiso y tiene un botón que abre la página correcta.
 
 ## 🚀 Crear una memoria
 
@@ -107,10 +104,10 @@ activarlo después.
 <summary><b>¿Por qué necesita acceso total al disco?</b></summary>
 <br>
 
-La parte de SnakeStick que escribe en la memoria es una herramienta auxiliar en segundo plano (un daemon de launchd). macOS no
-permite que estas herramientas abran discos extraíbles ni lean una ISO en carpetas como Descargas a menos que la app a la que
-pertenecen tenga acceso total al disco, y no hay ningún permiso más limitado que una herramienta auxiliar pueda pedir. Se lo
-concedes a la app SnakeStick, y llega a la herramienta auxiliar que hay dentro de la app.
+La parte de SnakeStick que escribe en la memoria es una herramienta independiente incluida en la app, que se inicia con
+privilegios de administrador en cada escritura. macOS no permite que abra discos extraíbles ni lea una ISO en carpetas como
+Descargas a menos que la app a la que pertenece tenga acceso total al disco, y no hay ningún permiso más limitado que pueda
+pedir. Se lo concedes a la app SnakeStick, y llega a la herramienta que hay dentro de la app.
 
 </details>
 

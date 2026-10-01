@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/team-unstablers/SnakeStick/releases/latest"><img alt="下載最新版本" src="https://img.shields.io/badge/Download-Latest%20release-B3122E?style=for-the-badge&logo=github&logoColor=white"></a>
-  <img alt="macOS 26.6 或以上版本" src="https://img.shields.io/badge/macOS-26.6%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
+  <img alt="macOS 14 或以上版本" src="https://img.shields.io/badge/macOS-14%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
   <img alt="Windows 10 與 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E0B10?style=for-the-badge">
   <a href="COPYING"><img alt="授權：GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-0E0B10?style=for-the-badge"></a>
 </p>
@@ -44,7 +44,7 @@
 
 | | |
 |---|---|
-| **Mac** | macOS Tahoe 26.6 或以上版本，以及管理者密碼 |
+| **Mac** | macOS Sonoma 14 或以上版本，以及管理者密碼 |
 | **Windows ISO** | Windows 10 或 11 安裝 ISO，例如從 Microsoft 的 [Windows 11](https://www.microsoft.com/zh-tw/software-download/windows11) 或 [Windows 10](https://www.microsoft.com/zh-tw/software-download/windows10) 下載頁面取得 |
 | **USB 隨身碟** | 容量需足以放下 ISO；容量太小的隨身碟會以灰色顯示。以目前的 Windows 11 ISO 來說，16 GB 就足夠。 |
 | **目標 PC** | 以 UEFI 模式開機的 PC。不支援傳統 BIOS（CSM）開機。 |
@@ -52,14 +52,11 @@
 > [!CAUTION]
 > 寫入會**清除所選 USB 隨身碟上的所有內容**。請先將想保留的資料拷貝出來。
 
-## 🔑 第一次啟動：兩項只需設定一次的權限
+## 🔑 權限
 
-SnakeStick 透過一個以管理者權限在背景執行的小型輔助程式寫入隨身碟，因此 App 本身永遠不需要以 root 身分執行。macOS 會請你核准這個輔助程式一次：
+SnakeStick 透過 App 內的一個小型工具寫入隨身碟。這個工具只在寫入期間以管理者權限執行，因此 App 本身永遠不需要以 root 身分執行。每次寫入隨身碟時，macOS 都會詢問你的管理者密碼。
 
-1. **允許輔助程式。** 第一次按下 **開始寫入** 時，macOS 會請你允許 SnakeStick 的輔助程式。請在 **系統設定 › 一般 › 登入項目與延伸功能** 中開啟 **SnakeStick**，然後再試一次。
-2. **授予「完全取用磁碟」權限。** 除非 App 擁有「完全取用磁碟」權限，否則 macOS 不允許背景輔助程式存取可移除式磁碟，以及 **下載項目** 等檔案夾。請在 **系統設定 › 隱私權與安全性 › 完全取用磁碟** 中加入 **SnakeStick**。缺少此權限時 SnakeStick 會提醒你，並提供可直接打開該設定頁面的按鈕。
-
-之後，每次寫入隨身碟時，SnakeStick 都會詢問一次你的管理者密碼。
+**「完全取用磁碟」權限。** 除非 App 擁有「完全取用磁碟」權限，否則 macOS 不允許寫入工具存取可移除式磁碟，以及 **下載項目** 等檔案夾。請在 **系統設定 › 隱私權與安全性 › 完全取用磁碟** 中加入 **SnakeStick**。缺少此權限時 SnakeStick 會提醒你，並提供可直接打開該設定頁面的按鈕。
 
 ## 🚀 製作隨身碟
 
@@ -89,7 +86,7 @@ SnakeStick 透過一個以管理者權限在背景執行的小型輔助程式寫
 <summary><b>為什麼需要「完全取用磁碟」權限？</b></summary>
 <br>
 
-SnakeStick 負責寫入隨身碟的部分是一個背景輔助程式（launchd 常駐程式）。除非這類輔助程式所屬的 App 擁有「完全取用磁碟」權限，否則 macOS 不允許它們打開可移除式磁碟，也不允許讀取「下載項目」等檔案夾中的 ISO，而且輔助程式也沒有範圍更小的權限可以申請。你只需將權限授予 SnakeStick App，App 內的輔助程式就能取得此權限。
+SnakeStick 負責寫入隨身碟的部分是 App 內的一個獨立工具，每次寫入時都會以管理者權限啟動。除非這個工具所屬的 App 擁有「完全取用磁碟」權限，否則 macOS 不允許它打開可移除式磁碟，也不允許讀取「下載項目」等檔案夾中的 ISO，而且這個工具也沒有範圍更小的權限可以申請。你只需將權限授予 SnakeStick App，App 內的工具就能取得此權限。
 
 </details>
 

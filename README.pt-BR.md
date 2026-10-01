@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/team-unstablers/SnakeStick/releases/latest"><img alt="Baixe a versão mais recente" src="https://img.shields.io/badge/Download-Latest%20release-B3122E?style=for-the-badge&logo=github&logoColor=white"></a>
-  <img alt="macOS 26.6 ou posterior" src="https://img.shields.io/badge/macOS-26.6%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
+  <img alt="macOS 14 ou posterior" src="https://img.shields.io/badge/macOS-14%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
   <img alt="Windows 10 e 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E0B10?style=for-the-badge">
   <a href="COPYING"><img alt="Licença: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-0E0B10?style=for-the-badge"></a>
 </p>
@@ -56,7 +56,7 @@ Baixe a versão mais recente na aba **[Releases](https://github.com/team-unstabl
 
 | | |
 |---|---|
-| **Mac** | macOS Tahoe 26.6 ou posterior e uma senha de administrador |
+| **Mac** | macOS Sonoma 14 ou posterior e uma senha de administrador |
 | **ISO do Windows** | Uma ISO de instalação do Windows 10 ou 11, por exemplo da página de download do [Windows 11](https://www.microsoft.com/pt-br/software-download/windows11) ou do [Windows 10](https://www.microsoft.com/pt-br/software-download/windows10) da Microsoft |
 | **Pendrive USB** | Grande o suficiente para a ISO; pendrives pequenos demais aparecem esmaecidos. 16 GB é um tamanho seguro para as ISOs atuais do Windows 11. |
 | **PC de destino** | Um PC que inicialize no modo UEFI. A inicialização pelo BIOS legado (CSM) não é suportada. |
@@ -64,21 +64,16 @@ Baixe a versão mais recente na aba **[Releases](https://github.com/team-unstabl
 > [!CAUTION]
 > A gravação **apaga tudo** no pendrive USB selecionado. Antes, copie dele tudo o que você quiser manter.
 
-## 🔑 Primeira execução: duas permissões concedidas uma única vez
+## 🔑 Permissões
 
-O SnakeStick grava o pendrive por meio de uma pequena ferramenta auxiliar que é executada em segundo plano com privilégios
-de administrador, para que o próprio app nunca precise ser executado como root. O macOS pede que você aprove essa
-ferramenta auxiliar uma vez:
+O SnakeStick grava o pendrive com uma pequena ferramenta incluída no app, que só é executada com privilégios de
+administrador durante a gravação, para que o próprio app nunca precise ser executado como root. A cada gravação de um
+pendrive, o macOS pede a sua senha de administrador.
 
-1. **Permita a ferramenta auxiliar.** Na primeira vez que você clicar em **Iniciar Gravação**, o macOS pedirá que você
-   permita a ferramenta auxiliar do SnakeStick. Ative o **SnakeStick** em **Ajustes do Sistema › Geral › Itens de Início
-   de Sessão e Extensões** e tente novamente.
-2. **Conceda o Acesso Total ao Disco.** O macOS impede que ferramentas auxiliares em segundo plano acessem discos
-   removíveis e pastas como **Downloads**, a menos que o app tenha Acesso Total ao Disco. Adicione o **SnakeStick** em
-   **Ajustes do Sistema › Privacidade e Segurança › Acesso Total ao Disco**. O SnakeStick avisa quando essa permissão
-   está faltando e tem um botão que abre a página certa.
-
-Depois disso, o SnakeStick pede a sua senha de administrador uma vez a cada gravação de um pendrive.
+**Acesso Total ao Disco.** O macOS impede que a ferramenta de gravação acesse discos removíveis e pastas como
+**Downloads**, a menos que o app tenha Acesso Total ao Disco. Adicione o **SnakeStick** em **Ajustes do Sistema ›
+Privacidade e Segurança › Acesso Total ao Disco**. O SnakeStick avisa quando essa permissão está faltando e tem um botão
+que abre a página certa.
 
 ## 🚀 Criando um pendrive
 
@@ -117,11 +112,10 @@ funciona; ative-o de novo depois.
 <summary><b>Por que ele precisa de Acesso Total ao Disco?</b></summary>
 <br>
 
-A parte do SnakeStick que grava o pendrive é uma ferramenta auxiliar em segundo plano (um daemon do launchd). O macOS não
-permite que ferramentas auxiliares desse tipo abram discos removíveis, ou leiam uma ISO em pastas como Downloads, a menos
-que o app ao qual pertencem tenha Acesso Total ao Disco, e não existe uma permissão mais restrita que uma ferramenta
-auxiliar possa pedir. Você concede a permissão ao app SnakeStick, e ela vale também para a ferramenta auxiliar dentro do
-app.
+A parte do SnakeStick que grava o pendrive é uma ferramenta separada incluída no app, iniciada com privilégios de
+administrador a cada gravação. O macOS não permite que ela abra discos removíveis, ou leia uma ISO em pastas como
+Downloads, a menos que o app ao qual pertence tenha Acesso Total ao Disco, e não existe uma permissão mais restrita que
+ela possa pedir. Você concede a permissão ao app SnakeStick, e ela vale também para a ferramenta dentro do app.
 
 </details>
 
