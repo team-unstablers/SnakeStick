@@ -14,6 +14,7 @@ Implemented. The task documents in `Prompts/` track the work:
 |---|---|---|---|
 | 00 | `Prompts/00-metainit.xml` | Design interview and decisions | done (2026-09-30) |
 | 10 | `Prompts/10-implementation.xml` | Core library, CLI, privileged helper, GUI | implemented (`Prompts/10-implementation.report.md`) |
+| 20 | `Prompts/20-osascript-ipc.xml` | Root daemon replaced by the bundled CLI run through osascript; macOS 14 | implemented (`Prompts/20-osascript-ipc.report.md`) |
 
 SnakeStick is built on three packages in this repository, each with its own task documents and reports:
 
@@ -60,18 +61,16 @@ verification failure, 77 `make` without root, 130 interrupted (Ctrl-C; cleanup r
 ## The app
 
 The app offers `make` only. It lists external and removable disks, greys out the ones too small for
-the chosen ISO, and asks before erasing. The write runs in a root helper daemon that the app
-registers with `SMAppService`. Two one-time approvals are needed:
+the chosen ISO, and asks before erasing. The write runs in the `snakestick` CLI bundled in the app
+(`Contents/Helpers/snakestick`), which the app starts as root for each write through `osascript`
+and `do shell script … with administrator privileges`. The only approval is the administrator
+dialog that comes with every write.
 
-1. **Login Items.** The first write asks you to allow the helper in System Settings > General >
-   Login Items.
-2. **Full Disk Access.** macOS keeps launchd daemons, even root ones, away from removable disks and
-   from folders such as `~/Downloads` unless they have Full Disk Access. Add **SnakeStick** (the app;
-   this covers the helper inside it) in System Settings > Privacy & Security > Full Disk Access. The
-   app shows a notice with a button to that page when the helper reports it is missing.
-
-Every write then asks for an administrator once; the helper requests the right through the app's
-authorization, so the dialog appears in your session.
+**Full Disk Access** is still asked for when a write fails with `EPERM`: the app shows a notice with
+a button to System Settings > Privacy & Security > Full Disk Access. With the old root daemon, TCC
+kept the daemon away from removable disks and `~/Downloads` until the app had Full Disk Access.
+Whether that also applies to the CLI started through osascript, and whether Full Disk Access for the
+app helps it, has not been tried on a real stick yet (U1 in `Prompts/20-osascript-ipc.xml`).
 
 # HOW IT WORKS
 
@@ -121,7 +120,7 @@ stick unbootable.
   "device with just one partition" it needs, and the temporary partition image, the extra copy and
   the sparse-file bookkeeping all disappear. The price is that the disk-selection rules and the
   confirmation step are the last line of defense, so they are checked in the app, in the CLI and
-  again in the helper, and slices are matched against the table before they are formatted.
+  again in the pipeline, and slices are matched against the table before they are formatted.
 - **UEFI only.** Legacy BIOS boot is not supported. Windows 11 requires UEFI, and BIOS boot would need
   an MBR plus partition boot code.
 - **NTFS plus UEFI:NTFS instead of FAT32.** FAT32 cannot hold files of 4 GiB or larger, and
@@ -131,12 +130,23 @@ stick unbootable.
   starts `\EFI\BOOT\BOOTX64.EFI` from the NTFS partition. Rufus uses the same arrangement.
 - **NTFS in user space.** NTFS volumes are created by NTFS3G, a Swift package in this repository that
   wraps libntfs-3g, vendored as an unmodified submodule. WIMLib does the same for wimlib.
-- **A root daemon for the app.** The app never runs as root. The helper daemon is registered with
-  `SMAppService`, accepts XPC connections only from the app (same Team ID and bundle identifier),
-  checks the target again, acquires an Authorization Services right (`pl.unstabler.aislop.SnakeStick.write`,
-  authenticate as admin) through the authorization the app sends, and only then runs the pipeline.
-  It runs one job at a time, cancels it if the app disconnects, and exits when idle. The CLI runs the
-  same pipeline in-process under `sudo`.
+- **The app writes through the CLI, as root via osascript.** The app never runs as root. For each
+  write it listens on a Unix domain socket in a new directory only its user can enter (mode 0700),
+  and runs `/usr/bin/osascript` with a script that does `do shell script … with administrator
+  privileges` on `snakestick ipc --socket PATH`. The values reach the script as arguments and are
+  quoted with `quoted form of`; the request itself (`InstallerRequest`) is the first message on the
+  socket, so the ISO path never goes through the shell or shows up in `ps`. Both directions carry
+  one JSON object per line (`IPC` in `SnakeStickCore`): the app sends `start` and, to stop, `cancel`;
+  the CLI sends the pipeline's events, the last of which is `finished` or `failed`. For a disk the
+  CLI makes the checks of `make` (root, existence, eligibility, size) before the pipeline makes them
+  again. Closing the app's end (quitting, crashing) cancels the job like `cancel` does; both ends
+  use `SO_NOSIGPIPE`, so the CLI still cleans up when the app is gone. Dismissing the administrator
+  dialog (AppleScript error -128) returns the app to its idle state.
+  This replaced a root launchd daemon registered with `SMAppService` and reached over XPC (stage
+  20): the daemon needed a Login Items approval besides Full Disk Access, and the XPC peer checks it
+  used require macOS 26. The price is that nothing checks the CLI before it runs as root: a process
+  running as the same user could replace it in the bundle or race for the socket. That risk is
+  accepted.
 - **Automatic mounts are refused, not raced.** macOS probes and mounts new slices as soon as the
   partition table appears. A DiskArbitration mount-approval callback refuses every mount of the
   target while SnakeStick works, except the two mounts of the FAT partition that SnakeStick itself
@@ -180,12 +190,17 @@ These are accepted trade-offs, not design goals.
 - **Windows compatibility of NTFS3G volumes is only partly verified.** libntfs-3g creates file names in
   the POSIX namespace and does not generate DOS 8.3 names. Windows Setup has started from such a
   stick; a full installation and `chkdsk` have not been tried.
-- **The app needs Full Disk Access** (see [The app](#the-app)), because the helper that writes the
-  disk is a launchd daemon and macOS gives daemons no way to ask for narrower permissions.
+- **The app may need Full Disk Access** (see [The app](#the-app)). The root daemon it used before
+  did; whether the CLI started through osascript does is still to be tried.
+- **The app's Debug build writes `default.profraw`.** Debug builds from Xcode are instrumented for
+  code coverage, the bundled CLI included, and an instrumented binary writes its profile into its
+  working directory when it exits. The app and daemon of the last release export (before stage 20)
+  were not instrumented; a release export with the bundled CLI has not been checked yet.
 
 # REQUIREMENTS
 
-- macOS 26 for the app (deployment target 26.6); macOS 14 for `SnakeStickCore` and the CLI
+- macOS 14 for the app, `SnakeStickCore` and the CLI (deployment target 14.0; `@Observable` and
+  `SnakeStickCore`'s platform keep it from going lower)
 - Xcode 27 / Swift 6.4 to build (the packages use swift-tools-version 6.4)
 
 # TESTING
@@ -201,6 +216,11 @@ the whole pipeline against sparse images attached with `hdiutil attach -nomount`
 results back. Device paths come only from the output of the `hdiutil attach` a test just ran. No
 automated test writes to a real disk.
 
+The `ipc` tests play the app: they listen on a socket, run the built `snakestick ipc`, and send it
+requests for image targets (and for a disk, which it must refuse without root). Setting
+`SNAKESTICK_TEST_BINARY` to `SnakeStick.app/Contents/Helpers/snakestick` runs them against the CLI
+inside a built app.
+
 # RELEASE
 
 ```sh
@@ -212,10 +232,11 @@ The script archives the `SnakeStick` scheme (Release, into its own DerivedData u
 exports it with the Developer ID certificate, notarizes and staples the app and then the DMG. It
 needs `create-dmg` (Homebrew), the Developer ID Application certificate of team XHA76UVA95 and the
 `notarytool` keychain profile `tu-noctiluca-notarycred`. Before submitting anything it checks the
-exported bundle: the app and the daemon are both signed with that Developer ID under their own
-identifiers with the hardened runtime (each accepts the other only from the same team), the daemon
-reports the app's version (set `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` on both targets),
-the launchd plist points at the daemon, and the bundled UEFI:NTFS files match the checked-in ones.
+exported bundle: the app and the CLI in `Contents/Helpers` are both signed with that Developer ID
+under their own identifiers with the hardened runtime, the CLI has the
+`@executable_path/../Frameworks` rpath and every framework it links is in `Contents/Frameworks`
+(Xcode also gives it an rpath into the build directory, which hides a missing one on the build
+machine), and the bundled UEFI:NTFS files match the checked-in ones.
 A build from a working tree with changes is tagged `-dirty`.
 
 # LICENSE

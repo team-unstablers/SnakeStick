@@ -9,7 +9,7 @@ the repository.
 
 | Path | What | Own docs |
 |---|---|---|
-| `SnakeStick/` | Xcode project: the app (`SnakeStick/SnakeStick`), the `SnakeStickHelper` root daemon, the daemon's launchd plist (`LaunchDaemons/`) | — |
+| `SnakeStick/` | Xcode project: the app (`SnakeStick/SnakeStick`); it bundles the `snakestick` CLI as `Contents/Helpers/snakestick` and runs it as root through osascript for each write (`Model/InstallerRunner.swift`) | — |
 | `SnakeStickCore/` | SwiftPM package: the pipeline library `SnakeStickCore` and the `snakestick` CLI | `docs/DESIGN.md` |
 | `slopdisk/` | GPT engine and raw device backend (SlopDisk) | `slopdisk/README.md`, `slopdisk/CLAUDE.md` |
 | `NTFS3G/` | libntfs-3g wrapper (submodule at `NTFS3G/Vendor/ntfs-3g`) | `NTFS3G/README.md` |
@@ -22,7 +22,7 @@ the repository.
 `SnakeStickCore/Sources/SnakeStickCore/`: `Model.swift` (the public request, event and error types),
 `ISOInfo.swift`, `DiskCandidates.swift`, `Installer.swift` (`runInstaller`, cleanup), `Pipeline/`
 (one file per concern: partitioning, mount guard, boot partition, CA 2023, verification, progress),
-`HelperProtocol.swift` (app ↔ daemon messages), `Resources/UEFI-NTFS/` (bundled signed loaders; update
+`IPC.swift` (app ↔ `snakestick ipc` messages and sockets), `Resources/UEFI-NTFS/` (bundled signed loaders; update
 them only with `Scripts/update-uefi-ntfs.sh`).
 
 Every package has a `Prompts/` directory with numbered task documents and `*.report.md` files. A
@@ -47,14 +47,20 @@ kill-after loop (`cmd & pid=$!; for …; do sleep 1; kill -0 $pid || break; done
   built `snakestick` binary. About 30 seconds, no root.
 - The Xcode build puts its products under `~/Library/Developer/Xcode/DerivedData/Build/Products/`
   on this machine (the workspace setting), not under a per-project DerivedData folder.
-- The app registers the daemon with `SMAppService`; the first time, it has to be allowed in System
-  Settings > General > Login Items. The app also needs Full Disk Access (granted to the app, it
-  covers the daemon inside the bundle): TCC keeps launchd daemons, root or not, away from
-  removable disks and `~/Downloads`. The daemon logs to the unified log, subsystem
-  `pl.unstabler.aislop.SnakeStick.helper`; read it with `/usr/bin/log` (zsh has a `log` builtin).
-- Do not rebuild the app while its helper is writing: the build replaces the helper binary the
-  running daemon was started from. The daemon exits when it has no connections and no job, and the
-  next connection starts the new binary.
+- The app writes by running `Contents/Helpers/snakestick ipc --socket PATH` as root through
+  `osascript` (`do shell script … with administrator privileges`); the administrator dialog comes up
+  for every write. The request and the events travel over that Unix socket. Whether TCC keeps the
+  CLI away from removable disks and `~/Downloads` without Full Disk Access, as it did the old root
+  daemon, is not known yet (U1 in `Prompts/20-osascript-ipc.xml`). The app logs to the unified log,
+  subsystem `pl.unstabler.aislop.SnakeStick`; read it with `/usr/bin/log` (zsh has a `log`
+  builtin). The CLI's stderr ends up in the app's log only when it fails.
+- The ipc tests run the CLI built next to the test bundle; `SNAKESTICK_TEST_BINARY=<app>/Contents/Helpers/snakestick`
+  runs them against the one in a built app instead.
+- Do not rebuild the app while it is writing: the build replaces the bundled CLI the running write
+  was started from.
+- Xcode builds the packages as frameworks in `Contents/Frameworks` (the app and the CLI both link
+  them). Debug builds are instrumented for code coverage, so the bundled CLI leaves a
+  `default.profraw` in its working directory; do not commit those.
 - Command-line `xcodebuild` leaves empty `.swiftpm/xcode` directories in packages that Xcode has not
   opened; Xcode then fails to load those packages ("Couldn't load project “xcode”"). Remove the
   empty directories, or open the workspace in Xcode once.

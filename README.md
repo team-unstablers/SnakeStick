@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/team-unstablers/SnakeStick/releases/latest"><img alt="Download the latest release" src="https://img.shields.io/badge/Download-Latest%20release-B3122E?style=for-the-badge&logo=github&logoColor=white"></a>
-  <img alt="macOS 26.6 or later" src="https://img.shields.io/badge/macOS-26.6%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
+  <img alt="macOS 14 or later" src="https://img.shields.io/badge/macOS-14%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
   <img alt="Windows 10 and 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E0B10?style=for-the-badge">
   <a href="COPYING"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-0E0B10?style=for-the-badge"></a>
 </p>
@@ -50,7 +50,7 @@ then move **SnakeStick** to your **Applications** folder. The app is signed and 
 
 | | |
 |---|---|
-| **Mac** | macOS Tahoe 26.6 or later, and an administrator password |
+| **Mac** | macOS Sonoma 14 or later, and an administrator password |
 | **Windows ISO** | A Windows 10 or 11 installation ISO, for example from Microsoft's [Windows 11](https://www.microsoft.com/software-download/windows11) or [Windows 10](https://www.microsoft.com/software-download/windows10) download page |
 | **USB stick** | Large enough for the ISO; sticks that are too small are greyed out. 16 GB is a safe size for current Windows 11 ISOs. |
 | **Target PC** | A PC that boots in UEFI mode. Legacy BIOS (CSM) boot is not supported. |
@@ -58,18 +58,14 @@ then move **SnakeStick** to your **Applications** folder. The app is signed and 
 > [!CAUTION]
 > Writing **erases everything** on the selected USB stick. Copy anything you want to keep off it first.
 
-## 🔑 First launch: two one-time permissions
+## 🔑 Permissions
 
-SnakeStick writes the stick through a small helper that runs in the background with administrator rights, so the app
-itself never has to run as root. macOS asks you to approve that helper once:
+SnakeStick writes the stick with a small tool inside the app that runs with administrator rights only while it writes,
+so the app itself never has to run as root. Each time you write a stick, macOS asks for your administrator password.
 
-1. **Allow the helper.** The first time you press **Start Writing**, macOS asks you to allow SnakeStick's helper.
-   Turn on **SnakeStick** in **System Settings › General › Login Items & Extensions**, then try again.
-2. **Grant Full Disk Access.** macOS keeps background helpers away from removable disks and from folders such as
-   **Downloads** unless the app has Full Disk Access. Add **SnakeStick** in **System Settings › Privacy & Security ›
-   Full Disk Access**. SnakeStick tells you when this is missing and has a button that opens the right page.
-
-After that, SnakeStick asks for your administrator password once each time you write a stick.
+**Full Disk Access.** macOS keeps the writing tool away from removable disks and from folders such as **Downloads**
+unless the app has Full Disk Access. Add **SnakeStick** in **System Settings › Privacy & Security › Full Disk
+Access**. SnakeStick tells you when this is missing and has a button that opens the right page.
 
 ## 🚀 Making a stick
 
@@ -106,10 +102,10 @@ afterwards.
 <summary><b>Why does it need Full Disk Access?</b></summary>
 <br>
 
-The part of SnakeStick that writes the stick is a background helper (a launchd daemon). macOS does not let such
-helpers open removable disks, or read an ISO in folders such as Downloads, unless the app they belong to has Full
-Disk Access, and there is no narrower permission a helper can ask for. You grant it to the SnakeStick app, and it
-reaches the helper inside the app.
+The part of SnakeStick that writes the stick is a separate tool inside the app, started with administrator rights for
+each write. macOS does not let it open removable disks, or read an ISO in folders such as Downloads, unless the app
+it belongs to has Full Disk Access, and there is no narrower permission it can ask for. You grant it to the
+SnakeStick app, and it reaches the tool inside the app.
 
 </details>
 

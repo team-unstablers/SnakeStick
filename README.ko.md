@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/team-unstablers/SnakeStick/releases/latest"><img alt="최신 릴리스 다운로드" src="https://img.shields.io/badge/Download-Latest%20release-B3122E?style=for-the-badge&logo=github&logoColor=white"></a>
-  <img alt="macOS 26.6 이상" src="https://img.shields.io/badge/macOS-26.6%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
+  <img alt="macOS 14 이상" src="https://img.shields.io/badge/macOS-14%2B-0E0B10?style=for-the-badge&logo=apple&logoColor=white">
   <img alt="Windows 10, 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0E0B10?style=for-the-badge">
   <a href="COPYING"><img alt="라이선스: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-0E0B10?style=for-the-badge"></a>
 </p>
@@ -50,7 +50,7 @@
 
 | | |
 |---|---|
-| **Mac** | macOS Tahoe 26.6 이상, 관리자 암호 |
+| **Mac** | macOS Sonoma 14 이상, 관리자 암호 |
 | **Windows ISO** | Windows 10 또는 11 설치 ISO. Microsoft의 [Windows 11](https://www.microsoft.com/ko-kr/software-download/windows11)·[Windows 10](https://www.microsoft.com/ko-kr/software-download/windows10) 다운로드 페이지에서 받을 수 있습니다. |
 | **USB 스틱** | ISO가 들어갈 만큼 커야 합니다. 너무 작은 스틱은 흐리게 표시됩니다. 요즘 Windows 11 ISO라면 16GB가 넉넉합니다. |
 | **설치할 PC** | UEFI 모드로 부팅하는 PC. 레거시 BIOS(CSM) 부팅은 지원하지 않습니다. |
@@ -58,18 +58,14 @@
 > [!CAUTION]
 > 쓰기를 시작하면 선택한 USB 스틱의 **모든 내용이 지워집니다.** 남겨야 할 파일은 먼저 옮겨 두세요.
 
-## 🔑 처음 실행할 때: 한 번만 허용하면 되는 권한 두 가지
+## 🔑 권한
 
-SnakeStick은 관리자 권한으로 백그라운드에서 도는 작은 도우미를 통해 스틱을 씁니다. 그래서 앱 자체는 root로 실행될 일이
-없습니다. 이 도우미를 macOS에서 한 번 허용해 주어야 합니다.
+SnakeStick은 앱 안에 든 작은 도구로 스틱을 씁니다. 이 도구는 쓰는 동안에만 관리자 권한으로 실행되므로, 앱 자체는 root로
+실행될 일이 없습니다. 스틱을 쓸 때마다 macOS가 관리자 암호를 묻습니다.
 
-1. **도우미 허용.** 처음 **쓰기 시작**을 누르면 macOS가 SnakeStick 도우미를 허용할지 묻습니다.
-   **시스템 설정 › 일반 › 로그인 항목 및 확장 프로그램**에서 **SnakeStick**을 켠 뒤 다시 시도하세요.
-2. **전체 디스크 접근 권한.** 앱에 전체 디스크 접근 권한이 없으면 macOS는 백그라운드 도우미가 이동식 디스크나
-   **다운로드** 같은 폴더에 접근하지 못하게 막습니다. **시스템 설정 › 개인정보 보호 및 보안 › 전체 디스크 접근 권한**에
-   **SnakeStick**을 추가하세요. 권한이 없으면 SnakeStick이 알려 주고, 해당 설정 화면을 여는 버튼도 보여 줍니다.
-
-그다음부터는 스틱을 쓸 때마다 관리자 암호를 한 번씩만 묻습니다.
+**전체 디스크 접근 권한.** 앱에 전체 디스크 접근 권한이 없으면 macOS는 쓰기 도구가 이동식 디스크나 **다운로드** 같은
+폴더에 접근하지 못하게 막습니다. **시스템 설정 › 개인정보 보호 및 보안 › 전체 디스크 접근 권한**에 **SnakeStick**을
+추가하세요. 권한이 없으면 SnakeStick이 알려 주고, 해당 설정 화면을 여는 버튼도 보여 줍니다.
 
 ## 🚀 설치 USB 만들기
 
@@ -104,9 +100,10 @@ Secure Boot를 켠 상태에서 스틱으로 부팅이 안 된다면, 펌웨어 
 <summary><b>전체 디스크 접근 권한은 왜 필요한가요?</b></summary>
 <br>
 
-SnakeStick에서 스틱을 실제로 쓰는 부분은 백그라운드 도우미(launchd 데몬)입니다. macOS는 이런 도우미가 속한 앱에 전체
-디스크 접근 권한이 없으면, 도우미가 이동식 디스크를 열거나 다운로드 같은 폴더의 ISO를 읽지 못하게 합니다. 도우미가
-요청할 수 있는 더 좁은 권한은 없습니다. 권한은 SnakeStick 앱에 주는 것이고, 앱 안에 든 도우미에까지 적용됩니다.
+SnakeStick에서 스틱을 실제로 쓰는 부분은 앱 안에 든 별도의 도구이고, 쓸 때마다 관리자 권한으로 실행됩니다. macOS는 이
+도구가 속한 앱에 전체 디스크 접근 권한이 없으면, 도구가 이동식 디스크를 열거나 다운로드 같은 폴더의 ISO를 읽지 못하게
+합니다. 도구가 요청할 수 있는 더 좁은 권한은 없습니다. 권한은 SnakeStick 앱에 주는 것이고, 앱 안에 든 도구에까지
+적용됩니다.
 
 </details>
 
