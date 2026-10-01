@@ -30,6 +30,8 @@ struct SnakeStickCLI {
             return await make(iso: iso, disk: disk, options: options, assumeYes: assumeYes)
         case .build(let iso, let output, let imageSize, let options):
             return await build(iso: iso, output: output, imageSize: imageSize, options: options)
+        case .ipc(let socket):
+            return await ipc(socketPath: socket)
         }
     }
 
@@ -77,32 +79,20 @@ struct SnakeStickCLI {
     }
 
     static func make(iso: String, disk: String, options: WriteOptions, assumeYes: Bool) async -> ExitCode {
-        // Checked before anything is opened (P14).
-        guard getuid() == 0 else {
-            Console.error("snakestick: make writes to a disk and needs root. Run it with sudo:\n  sudo snakestick make \(CommandLine.arguments.dropFirst(2).joined(separator: " "))")
-            return .noPermission
-        }
         let isoPath = absolutePath(iso)
         let info: ISOInfo
         let candidate: DiskCandidate
-        do {
-            info = try await inspectISO(at: isoPath)
-            guard let found = try listWholeDisks().first(where: { $0.bsdName == disk }) else {
-                Console.error("snakestick: \(disk) was not found. See snakestick disks.")
-                return .unavailable
-            }
-            candidate = found
-        } catch {
+        switch await checkDevice(isoPath: isoPath, disk: disk) {
+        case .success(let checked):
+            (info, candidate) = checked
+        case .failure(.rootRequired):
+            Console.error("snakestick: make writes to a disk and needs root. Run it with sudo:\n  sudo snakestick make \(CommandLine.arguments.dropFirst(2).joined(separator: " "))")
+            return .noPermission
+        case .failure(.rejected(_, let message)):
+            Console.error("snakestick: \(message)")
+            return .unavailable
+        case .failure(.error(let error)):
             return report(error)
-        }
-        // The eligibility rules cannot be skipped, not even with --yes (P14).
-        guard candidate.isEligible else {
-            Console.error("snakestick: \(disk) cannot be written: \(candidate.ineligibleReason ?? "not eligible"). See snakestick disks.")
-            return .unavailable
-        }
-        guard candidate.isLargeEnough(for: info.requiredBytes) else {
-            Console.error("snakestick: \(disk) holds \(SISize.format(candidate.sizeBytes)); this ISO needs \(SISize.format(info.requiredBytes)).")
-            return .unavailable
         }
 
         print("ISO:    \(info.windowsVersion) \(info.architecture), \(SISize.format(info.fileSize))")
@@ -148,38 +138,104 @@ struct SnakeStickCLI {
         }
     }
 
+    // MARK: - Checking a disk
+
+    enum DeviceCheckFailure: Error {
+        case rootRequired
+        /// Not found or not eligible (`.targetIneligible`), or too small (`.insufficientSpace`).
+        /// The message is the same for `make` and `ipc`.
+        case rejected(InstallerError.Kind, String)
+        case error(any Error)
+    }
+
+    /// What `make` and `ipc` check before a disk is written, in this order: root (before anything
+    /// is opened, P14), the ISO, the disk's existence, the eligibility rules (which cannot be
+    /// skipped, not even with --yes) and the size.
+    static func checkDevice(isoPath: String, disk: String) async -> Result<(ISOInfo, DiskCandidate), DeviceCheckFailure> {
+        guard getuid() == 0 else {
+            return .failure(.rootRequired)
+        }
+        let info: ISOInfo
+        let candidate: DiskCandidate
+        do {
+            info = try await inspectISO(at: isoPath)
+            guard let found = try listWholeDisks().first(where: { $0.bsdName == disk }) else {
+                return .failure(.rejected(.targetIneligible, "\(disk) was not found. See snakestick disks."))
+            }
+            candidate = found
+        } catch {
+            return .failure(.error(error))
+        }
+        guard candidate.isEligible else {
+            return .failure(.rejected(.targetIneligible, "\(disk) cannot be written: \(candidate.ineligibleReason ?? "not eligible"). See snakestick disks."))
+        }
+        guard candidate.isLargeEnough(for: info.requiredBytes) else {
+            return .failure(.rejected(.insufficientSpace, "\(disk) holds \(SISize.format(candidate.sizeBytes)); this ISO needs \(SISize.format(info.requiredBytes))."))
+        }
+        return .success((info, candidate))
+    }
+
     // MARK: - Running the pipeline
 
     static func write(_ request: InstallerRequest, verbose: Bool, finished: (InstallerResult) -> Void) async -> ExitCode {
         let console = Console(verbose: verbose)
-        let task = Task {
-            try await runInstaller(request) { console.handle($0) }
+        let outcome = await runPipeline(request, events: { console.handle($0) }) { cancel in
+            // SIGINT cancels the pipeline, which cleans up before it returns (P16).
+            signal(SIGINT, SIG_IGN)
+            let interrupt = DispatchSource.makeSignalSource(signal: SIGINT, queue: .global())
+            interrupt.setEventHandler { @Sendable in
+                console.note("Interrupted; cleaning up. The target will not be bootable.")
+                cancel()
+            }
+            interrupt.resume()
+            return {
+                interrupt.cancel()
+                signal(SIGINT, SIG_DFL)
+            }
         }
-        // SIGINT cancels the pipeline, which cleans up before it returns (P16).
-        signal(SIGINT, SIG_IGN)
-        let interrupt = DispatchSource.makeSignalSource(signal: SIGINT, queue: .global())
-        interrupt.setEventHandler {
-            console.note("Interrupted; cleaning up. The target will not be bootable.")
-            task.cancel()
-        }
-        interrupt.resume()
-        defer {
-            interrupt.cancel()
-            signal(SIGINT, SIG_DFL)
-        }
-
-        do {
-            let result = try await task.value
-            console.finishLine()
+        console.finishLine()
+        switch outcome {
+        case .finished(let result):
             finished(result)
             return .success
-        } catch is CancellationError {
-            console.finishLine()
+        case .cancelled:
             Console.error("snakestick: cancelled. The target was left as it is and cannot be booted; write it again to use it.")
             return .interrupted
-        } catch {
-            console.finishLine()
+        case .failed(let error):
             return report(error)
+        }
+    }
+
+    enum PipelineOutcome {
+        case finished(InstallerResult)
+        case cancelled
+        case failed(any Error)
+    }
+
+    /// Runs the pipeline for `request`. It is cancelled when the calling task is (`ipc`), or
+    /// through `cancellation` (SIGINT for `make` and `build`), which gets the function that
+    /// cancels the pipeline and returns the function that uninstalls it once the pipeline has
+    /// returned. Cancelling stops the pipeline at its next check; it cleans up before it returns.
+    static func runPipeline(
+        _ request: InstallerRequest,
+        events: @escaping @Sendable (InstallerEvent) -> Void,
+        cancellation: (_ cancel: @escaping @Sendable () -> Void) -> () -> Void = { _ in {} }
+    ) async -> PipelineOutcome {
+        let task = Task {
+            try await runInstaller(request, events: events)
+        }
+        let uninstall = cancellation { task.cancel() }
+        defer { uninstall() }
+        do {
+            return .finished(try await withTaskCancellationHandler {
+                try await task.value
+            } onCancel: {
+                task.cancel()
+            })
+        } catch is CancellationError {
+            return .cancelled
+        } catch {
+            return .failed(error)
         }
     }
 

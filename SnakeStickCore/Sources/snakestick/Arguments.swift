@@ -58,6 +58,8 @@ enum Command: Equatable {
     case build(iso: String, output: String, imageSize: UInt64?, options: WriteOptions)
     case disks
     case info(iso: String)
+    /// Internal: run one job for the app over the socket at `socket` (stage 20).
+    case ipc(socket: String)
 }
 
 enum Arguments {
@@ -91,11 +93,13 @@ enum Arguments {
         var assumeYes = false
         var imageSize: UInt64?
         var output: String?
+        var socket: String?
         var positional: [String] = []
         let allowed: Set<String> = switch subcommand {
         case "make": ["--label", "--no-verify", "--ca-2023", "--yes", "--verbose"]
         case "build": ["--label", "--no-verify", "--ca-2023", "--imgsize", "--verbose", "-o"]
         case "disks", "info": []
+        case "ipc": ["--socket"]
         default: throw UsageError("unknown subcommand '\(subcommand)'")
         }
 
@@ -140,6 +144,8 @@ enum Arguments {
                 imageSize = size
             case "-o":
                 output = try value(for: name, inline: inline)
+            case "--socket":
+                socket = try value(for: name, inline: inline)
             default:
                 guard inline == nil else {
                     throw UsageError("\(name) takes no value")
@@ -174,6 +180,11 @@ enum Arguments {
                 throw UsageError("disks takes no arguments")
             }
             return .disks
+        case "ipc":
+            guard let socket, positional.isEmpty else {
+                throw UsageError("ipc needs --socket PATH and nothing else")
+            }
+            return .ipc(socket: socket)
         default:
             guard positional.count == 1 else {
                 throw UsageError("info needs ISO")
