@@ -37,6 +37,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "F6BD17AD306C65C600CA4D17"
                BuildableName = "SnakeStickTests.xctest"
+               BlueprintName = "SnakeStickTests"
                ReferencedContainer = "container:SnakeStick.xcodeproj">
             </BuildableReference>
          </TestableReference>
@@ -47,6 +48,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "F6BD17B7306C65C600CA4D17"
                BuildableName = "SnakeStickUITests.xctest"
+               BlueprintName = "SnakeStickUITests"
                ReferencedContainer = "container:SnakeStick.xcodeproj">
             </BuildableReference>
          </TestableReference>

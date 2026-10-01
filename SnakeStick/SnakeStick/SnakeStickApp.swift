@@ -29,10 +29,12 @@ struct SnakeStickApp: App {
         }
 
         Window("About SnakeStick", id: AboutView.windowID) {
+            // Not reopened at the next launch. `.restorationBehavior(.disabled)` needs macOS 15;
+            // the deployment target is 14 (stage 20, decision 6).
             AboutView()
+                .background(WindowAccessor { $0.isRestorable = false })
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
-        .restorationBehavior(.disabled)
     }
 }
